@@ -28,9 +28,6 @@ class Indicators:
         period: int = 14,
         column: str = "close",
     ) -> pd.Series:
-        """
-        Relative Strength Index (RSI)
-        """
 
         delta = df[column].diff()
 
@@ -49,6 +46,33 @@ class Indicators:
 
         rs = avg_gain / avg_loss
 
-        rsi = 100 - (100 / (1 + rs))
+        return 100 - (100 / (1 + rs))
 
-        return rsi
+    @staticmethod
+    def atr(
+        df: pd.DataFrame,
+        period: int = 14,
+    ) -> pd.Series:
+
+        high_low = df["high"] - df["low"]
+
+        high_close = (
+            df["high"] - df["close"].shift()
+        ).abs()
+
+        low_close = (
+            df["low"] - df["close"].shift()
+        ).abs()
+
+        tr = pd.concat(
+            [
+                high_low,
+                high_close,
+                low_close,
+            ],
+            axis=1,
+        ).max(axis=1)
+
+        atr = tr.rolling(period).mean()
+
+        return atr
