@@ -1,8 +1,8 @@
 from MetaTrader5 import TIMEFRAME_M1
 
-from src.data.data_manager import DataManager
 from src.data.pipeline import DataPipeline
 from src.data.providers.mt5_provider import MT5Provider
+from src.features.indicators import Indicators
 
 provider = MT5Provider()
 
@@ -13,12 +13,8 @@ df = pipeline.run(
     timeframe=TIMEFRAME_M1,
 )
 
-manager = DataManager()
+df["EMA20"] = Indicators.ema(df, 20)
+df["EMA50"] = Indicators.ema(df, 50)
+df["EMA200"] = Indicators.ema(df, 200)
 
-path = manager.save(
-    df,
-    symbol="XAUUSD",
-    timeframe="M1",
-)
-
-print(path)
+print(df.tail())
