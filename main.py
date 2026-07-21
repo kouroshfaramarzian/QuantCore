@@ -1,9 +1,7 @@
-from src.core.constants import DatasetColumns
-from src.core.constants import PredictionLabels
+from src.core.logger import logger
 
-print(DatasetColumns.CLOSE)
-print(DatasetColumns.OPEN)
+logger.info("QuantCore started.")
 
-print(PredictionLabels.BUY)
-print(PredictionLabels.SELL)
-print(PredictionLabels.HOLD)
+logger.warning("Logger test.")
+
+logger.error("Sample error message.")
