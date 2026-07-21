@@ -1,13 +1,9 @@
-from src.core.config import config
+from src.core.constants import DatasetColumns
+from src.core.constants import PredictionLabels
 
-print(config.NAME)
-print(config.VERSION)
+print(DatasetColumns.CLOSE)
+print(DatasetColumns.OPEN)
 
-print(config.SYMBOL)
-print(config.TIMEFRAME)
-
-print(config.HISTORY_SIZE)
-
-print(config.DATASETS_DIR)
-print(config.MODELS_DIR)
-print(config.LOGS_DIR)
+print(PredictionLabels.BUY)
+print(PredictionLabels.SELL)
+print(PredictionLabels.HOLD)
