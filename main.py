@@ -18,4 +18,9 @@ df["EMA50"] = Indicators.ema(df, 50)
 df["EMA200"] = Indicators.ema(df, 200)
 df["RSI14"] = Indicators.rsi(df)
 df["ATR14"] = Indicators.atr(df)
+macd, signal, hist = Indicators.macd(df)
+
+df["MACD"] = macd
+df["MACD_SIGNAL"] = signal
+df["MACD_HIST"] = hist
 print(df.tail())
