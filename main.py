@@ -1,7 +1,9 @@
-from src.core.logger import logger
+from src.core.exceptions import DataError
 
-logger.info("QuantCore started.")
+try:
 
-logger.warning("Logger test.")
+    raise DataError("Dataset not found.")
 
-logger.error("Sample error message.")
+except DataError as e:
+
+    print(e)
