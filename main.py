@@ -1,9 +1,10 @@
-from src.core.exceptions import DataError
+from src.data.providers.csv_provider import CSVProvider
 
-try:
 
-    raise DataError("Dataset not found.")
+provider = CSVProvider("datasets/test.csv")
 
-except DataError as e:
+print(provider.connect())
 
-    print(e)
+df = provider.load_data()
+
+print(df)
