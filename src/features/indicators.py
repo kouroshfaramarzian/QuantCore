@@ -73,9 +73,7 @@ class Indicators:
             axis=1,
         ).max(axis=1)
 
-        atr = tr.rolling(period).mean()
-
-        return atr
+        return tr.rolling(period).mean()
 
     @staticmethod
     def macd(
@@ -109,3 +107,28 @@ class Indicators:
         histogram = macd - signal_line
 
         return macd, signal_line, histogram
+
+    @staticmethod
+    def bollinger(
+        df: pd.DataFrame,
+        period: int = 20,
+        std: float = 2,
+        column: str = "close",
+    ) -> tuple:
+
+        middle = (
+            df[column]
+            .rolling(period)
+            .mean()
+        )
+
+        deviation = (
+            df[column]
+            .rolling(period)
+            .std()
+        )
+
+        upper = middle + std * deviation
+        lower = middle - std * deviation
+
+        return upper, middle, lower

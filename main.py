@@ -23,4 +23,10 @@ macd, signal, hist = Indicators.macd(df)
 df["MACD"] = macd
 df["MACD_SIGNAL"] = signal
 df["MACD_HIST"] = hist
+
+upper, middle, lower = Indicators.bollinger(df)
+
+df["BB_UPPER"] = upper
+df["BB_MIDDLE"] = middle
+df["BB_LOWER"] = lower
 print(df.tail())
