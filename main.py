@@ -17,10 +17,16 @@ df = pipeline.run(
 
 df = FeatureEngine.transform(df)
 
-signal = SignalEngine.generate(df)
+result = SignalEngine.generate(df)
 
-print("=" * 40)
-print("QuantCore Signal")
-print("=" * 40)
-print(signal)
-print("=" * 40)
+print("=" * 50)
+print("QuantCore")
+print("=" * 50)
+
+print(f"Signal     : {result['signal'].value}")
+print(f"BUY Score  : {result['buy_score']}")
+print(f"SELL Score : {result['sell_score']}")
+
+print("=" * 50)
+
+provider.disconnect()

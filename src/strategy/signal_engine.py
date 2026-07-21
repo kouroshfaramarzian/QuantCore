@@ -1,32 +1,36 @@
 import pandas as pd
 
-from src.strategy.conditions import Conditions
+from src.strategy.scoring import Scoring
+from src.strategy.signals import Signal
 
 
 class SignalEngine:
     """
-    Generates BUY / SELL / HOLD signals.
+    Generates trading signals using scoring.
     """
 
     @staticmethod
     def generate(
         df: pd.DataFrame,
-    ) -> str:
+    ) -> dict:
 
-        if (
-            Conditions.ema_bullish(df)
-            and Conditions.macd_bullish(df)
-            and Conditions.rsi_bullish(df)
-            and Conditions.bullish_candle(df)
-        ):
-            return "BUY"
+        buy_score = Scoring.buy_score(df)
+        sell_score = Scoring.sell_score(df)
 
-        if (
-            Conditions.ema_bearish(df)
-            and Conditions.macd_bearish(df)
-            and Conditions.rsi_bearish(df)
-            and Conditions.bearish_candle(df)
-        ):
-            return "SELL"
+        if buy_score >= 70 and buy_score > sell_score:
 
-        return "HOLD"
+            signal = Signal.BUY
+
+        elif sell_score >= 70 and sell_score > buy_score:
+
+            signal = Signal.SELL
+
+        else:
+
+            signal = Signal.HOLD
+
+        return {
+            "signal": signal,
+            "buy_score": buy_score,
+            "sell_score": sell_score,
+        }
