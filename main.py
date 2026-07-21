@@ -16,5 +16,6 @@ df = pipeline.run(
 df["EMA20"] = Indicators.ema(df, 20)
 df["EMA50"] = Indicators.ema(df, 50)
 df["EMA200"] = Indicators.ema(df, 200)
+df["RSI14"] = Indicators.rsi(df)
 
 print(df.tail())
