@@ -88,10 +88,9 @@ def main():
         # SIGNAL
         # ==========================================
 
-        signal = SignalEngine.generate(test_df)
-        test_df = test_df.copy()
+        test_df = SignalEngine.generate_series(test_df)
 
-        test_df["signal"] = signal["signal"].value
+        signal = SignalEngine.generate(test_df)
         # ==========================================
         # RISK
         # ==========================================

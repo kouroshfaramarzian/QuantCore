@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from src.backtest.engine import TradingEngine
 from src.backtest.position import Position
 
@@ -22,36 +20,82 @@ class Backtester:
 
             time = df.iloc[i].name
 
-            if signal == "BUY" and not self.engine.position:
+            # ---------------- BUY ----------------
 
-                position = Position(
-                    symbol="XAUUSD",
-                    direction="BUY",
-                    volume=1.0,
-                    entry_price=price,
-                    stop_loss=0,
-                    take_profit=0,
-                    open_time=time,
-                )
+            if signal == "BUY":
 
-                self.engine.open_position(position)
+                if self.engine.position is None:
 
-            elif signal == "SELL" and self.engine.position:
+                    self.engine.open_position(
+                        Position(
+                            symbol="XAUUSD",
+                            direction="BUY",
+                            volume=1.0,
+                            entry_price=price,
+                            stop_loss=0,
+                            take_profit=0,
+                            open_time=time,
+                        )
+                    )
 
-                self.engine.close_position(
-                    exit_price=price,
-                    exit_time=time,
-                )
+                elif self.engine.position.direction == "SELL":
+
+                    self.engine.close_position(price, time)
+
+                    self.engine.open_position(
+                        Position(
+                            symbol="XAUUSD",
+                            direction="BUY",
+                            volume=1.0,
+                            entry_price=price,
+                            stop_loss=0,
+                            take_profit=0,
+                            open_time=time,
+                        )
+                    )
+
+            # ---------------- SELL ----------------
+
+            elif signal == "SELL":
+
+                if self.engine.position is None:
+
+                    self.engine.open_position(
+                        Position(
+                            symbol="XAUUSD",
+                            direction="SELL",
+                            volume=1.0,
+                            entry_price=price,
+                            stop_loss=0,
+                            take_profit=0,
+                            open_time=time,
+                        )
+                    )
+
+                elif self.engine.position.direction == "BUY":
+
+                    self.engine.close_position(price, time)
+
+                    self.engine.open_position(
+                        Position(
+                            symbol="XAUUSD",
+                            direction="SELL",
+                            volume=1.0,
+                            entry_price=price,
+                            stop_loss=0,
+                            take_profit=0,
+                            open_time=time,
+                        )
+                    )
 
         if self.engine.position:
 
-            last_price = df.iloc[-1]["close"]
-
-            last_time = df.iloc[-1].name
-
             self.engine.close_position(
-                exit_price=last_price,
-                exit_time=last_time,
+
+                df.iloc[-1]["close"],
+
+                df.iloc[-1].name,
+
             )
 
         return self.engine.trades
