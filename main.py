@@ -89,7 +89,9 @@ def main():
         # ==========================================
 
         signal = SignalEngine.generate(test_df)
+        test_df = test_df.copy()
 
+        test_df["signal"] = signal["signal"].value
         # ==========================================
         # RISK
         # ==========================================
@@ -110,8 +112,13 @@ def main():
 
         trades = backtester.run(test_df)
 
-        stats = Statistics.calculate(trades)
+        statistics = Statistics()
 
+        for trade in trades:
+            statistics.update(trade)
+
+        stats = statistics.summary()
+        
         # ==========================================
         # LIVE SIGNAL
         # ==========================================
