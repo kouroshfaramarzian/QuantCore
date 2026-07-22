@@ -1,108 +1,95 @@
-from typing import List
-
-import pandas as pd
+from datetime import datetime
 
 from src.backtest.trade import Trade
-from src.backtest.executor import TradeExecutor
+from src.backtest.position import Position
 
-from src.features.feature_engine import FeatureEngine
+from src.backtest.engine import BacktestEngine
+from src.backtest.simulator import TradeSimulator
 
 from src.strategy.signal_engine import SignalEngine
-
 from src.risk.risk_engine import RiskEngine
 
 
 class Backtester:
     """
-    Historical Backtesting Engine.
+    QuantCore Backtester v2
     """
 
     def __init__(self):
 
-        self.trades: List[Trade] = []
+        self.engine = BacktestEngine()
 
-    def run(
-        self,
-        df: pd.DataFrame,
-    ) -> List[Trade]:
+        self.trades = []
 
-        self.trades.clear()
+    def run(self, df):
 
-        # از کندل 200 شروع می‌کنیم
-        # تا EMA200 مقدار داشته باشد
+        self.trades = []
 
-        for i in range(200, len(df) - 1):
+        for i in range(200, len(df)):
 
-            history = df.iloc[: i + 1].copy()
+            history = df.iloc[: i + 1]
 
-            history = FeatureEngine.transform(history)
+            candle = history.iloc[-1]
+
+            # ===========================
+            # Existing Position
+            # ===========================
+
+            if self.engine.has_position():
+
+                position = self.engine.position
+
+                result = TradeSimulator.update(
+
+                    candle,
+
+                    position,
+
+                )
+
+                if result:
+
+                    self._close_trade(
+
+                        candle,
+
+                        position,
+
+                        result,
+
+                    )
+
+                continue
+
+            # ===========================
+            # New Signal
+            # ===========================
 
             signal = SignalEngine.generate(history)
 
-            direction = signal["signal"].value
-
-            if direction == "HOLD":
+            if signal["signal"].value == "HOLD":
 
                 continue
 
             risk = RiskEngine.calculate(
+
                 history,
-                direction,
+
+                signal["signal"].value,
+
             )
 
             if risk["entry"] is None:
 
                 continue
 
-            if direction == "BUY":
-
-                execution = TradeExecutor.execute_buy(
-
-                    df,
-
-                    i,
-
-                    risk["entry"],
-
-                    risk["stop_loss"],
-
-                    risk["take_profit"],
-
-                )
-
-            else:
-
-                execution = TradeExecutor.execute_sell(
-
-                    df,
-
-                    i,
-
-                    risk["entry"],
-
-                    risk["stop_loss"],
-
-                    risk["take_profit"],
-
-                )
-
-            trade = Trade(
+            position = Position(
 
                 symbol="XAUUSD",
 
-                timeframe="M1",
-
-                direction=direction,
-
-                entry_time=df.iloc[i]["time"],
-
-                exit_time=df.iloc[
-                    execution.exit_index
-                ]["time"],
+                direction=signal["signal"].value,
 
                 entry_price=risk["entry"],
-
-                exit_price=execution.exit_price,
 
                 stop_loss=risk["stop_loss"],
 
@@ -110,14 +97,77 @@ class Backtester:
 
                 volume=1.0,
 
-                profit=execution.profit,
-
-                rr=2.0,
-
-                result=execution.result,
+                entry_time=candle.time,
 
             )
 
-            self.trades.append(trade)
+            self.engine.open_position(position)
 
         return self.trades
+
+    def _close_trade(
+
+        self,
+
+        candle,
+
+        position,
+
+        result,
+
+    ):
+
+        trade = Trade(
+
+            symbol=position.symbol,
+
+            timeframe="M1",
+
+            direction=position.direction,
+
+            entry_time=position.entry_time,
+
+            exit_time=candle.time,
+
+            entry_price=position.entry_price,
+
+            exit_price=candle.close,
+
+            stop_loss=position.stop_loss,
+
+            take_profit=position.take_profit,
+
+            volume=position.volume,
+
+            profit=self._profit(
+
+                position,
+
+                candle.close,
+
+            ),
+
+            rr=0,
+
+            result=result,
+
+        )
+
+        self.trades.append(trade)
+
+        self.engine.close_position()
+
+    @staticmethod
+    def _profit(
+
+        position,
+
+        exit_price,
+
+    ):
+
+        if position.direction == "BUY":
+
+            return exit_price - position.entry_price
+
+        return position.entry_price - exit_price

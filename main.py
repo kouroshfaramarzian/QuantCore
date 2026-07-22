@@ -1,9 +1,13 @@
+from datetime import datetime
+
 from MetaTrader5 import TIMEFRAME_M1
 
 from src.data.pipeline import DataPipeline
 from src.data.providers.mt5_provider import MT5Provider
 
 from src.features.feature_engine import FeatureEngine
+
+from src.context.context_engine import ContextEngine
 
 from src.strategy.signal_engine import SignalEngine
 
@@ -13,66 +17,106 @@ from src.backtest.backtester import Backtester
 from src.backtest.statistics import Statistics
 from src.backtest.report import Report
 
+from src.evaluation.splitter import DataSplitter
+from src.evaluation.walk_forward import WalkForwardValidator
+
+from src.execution.order import Order
+from src.execution.order_manager import OrderManager
+
 
 def main():
-
-    # -----------------------------
-    # Provider
-    # -----------------------------
 
     provider = MT5Provider()
 
     try:
 
-        # -----------------------------
-        # Data Pipeline
-        # -----------------------------
+        # ==========================================
+        # DATA
+        # ==========================================
 
         pipeline = DataPipeline(provider)
 
         df = pipeline.run(
+
             symbol="XAUUSD",
+
             timeframe=TIMEFRAME_M1,
+
         )
 
-        # -----------------------------
-        # Feature Engineering
-        # -----------------------------
+        # ==========================================
+        # FEATURES
+        # ==========================================
 
         df = FeatureEngine.transform(df)
 
-        # -----------------------------
-        # Strategy
-        # -----------------------------
+        # ==========================================
+        # DATASET SPLIT
+        # ==========================================
 
-        signal = SignalEngine.generate(df)
+        train_df, validation_df, test_df = (
 
-        # -----------------------------
-        # Risk Management
-        # -----------------------------
+            DataSplitter.split(df)
 
-        risk = RiskEngine.calculate(
-            df,
-            signal["signal"].value,
         )
 
-        # -----------------------------
-        # Backtest
-        # -----------------------------
+        print()
+
+        print("=" * 60)
+        print("Dataset")
+        print("=" * 60)
+
+        print(f"Train      : {len(train_df)}")
+        print(f"Validation : {len(validation_df)}")
+        print(f"Test       : {len(test_df)}")
+
+        # ==========================================
+        # MARKET CONTEXT
+        # ==========================================
+
+        context = ContextEngine.build(test_df)
+
+        print()
+
+        print("=" * 60)
+        print("Market Context")
+        print("=" * 60)
+
+        print(context)
+
+        # ==========================================
+        # SIGNAL
+        # ==========================================
+
+        signal = SignalEngine.generate(test_df)
+
+        # ==========================================
+        # RISK
+        # ==========================================
+
+        risk = RiskEngine.calculate(
+
+            test_df,
+
+            signal["signal"].value,
+
+        )
+
+        # ==========================================
+        # BACKTEST
+        # ==========================================
 
         backtester = Backtester()
 
-        trades = backtester.run(df)
-
-        # -----------------------------
-        # Statistics
-        # -----------------------------
+        trades = backtester.run(test_df)
 
         stats = Statistics.calculate(trades)
 
-        # -----------------------------
-        # Live Signal
-        # -----------------------------
+        # ==========================================
+        # LIVE SIGNAL
+        # ==========================================
+
+        print()
 
         print("=" * 60)
         print("                  QuantCore")
@@ -90,18 +134,63 @@ def main():
 
         print("=" * 60)
 
-        # -----------------------------
-        # Backtest Report
-        # -----------------------------
+        # ==========================================
+        # BACKTEST REPORT
+        # ==========================================
 
         Report.show(stats)
 
-        # -----------------------------
-        # Debug (Optional)
-        # -----------------------------
+        # ==========================================
+        # WALK FORWARD
+        # ==========================================
 
-        # for trade in trades:
-        #     print(trade)
+        print()
+
+        print("=" * 60)
+        print("Walk Forward Validation")
+        print("=" * 60)
+
+        results = WalkForwardValidator.run(train_df)
+
+        for i, result in enumerate(results, start=1):
+
+            print()
+
+            print(f"Window {i}")
+
+            print(result)
+
+        # ==========================================
+        # EXECUTION TEST
+        # ==========================================
+
+        order = Order(
+
+            symbol="XAUUSD",
+
+            direction="BUY",
+
+            volume=1.0,
+
+            entry_price=2400,
+
+            stop_loss=2395,
+
+            take_profit=2410,
+
+            open_time=datetime.now(),
+
+        )
+
+        position = OrderManager.execute(order)
+
+        print()
+
+        print("=" * 60)
+        print("Execution Test")
+        print("=" * 60)
+
+        print(position)
 
     finally:
 
@@ -111,31 +200,3 @@ def main():
 if __name__ == "__main__":
 
     main()
-
-from datetime import datetime
-
-from src.execution.order import Order
-from src.execution.order_manager import OrderManager
-
-
-order = Order(
-
-    symbol="XAUUSD",
-
-    direction="BUY",
-
-    volume=1.0,
-
-    entry_price=2400,
-
-    stop_loss=2395,
-
-    take_profit=2410,
-
-    open_time=datetime.now(),
-
-)
-
-position = OrderManager.execute(order)
-
-print(position)
