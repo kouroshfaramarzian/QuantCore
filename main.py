@@ -91,6 +91,39 @@ def main():
         test_df = SignalEngine.generate_series(test_df)
 
         signal = SignalEngine.generate(test_df)
+
+        print()
+
+        print("=" * 60)
+        print("Strategy Debug")
+        print("=" * 60)
+
+        last = test_df.iloc[-1]
+
+        print(f"EMA20        : {last['EMA20']:.2f}")
+        print(f"EMA50        : {last['EMA50']:.2f}")
+        print(f"EMA200       : {last['EMA200']:.2f}")
+
+        print("-" * 60)
+
+        print(f"MACD         : {last['MACD']:.4f}")
+        print(f"MACD SIGNAL  : {last['MACD_SIGNAL']:.4f}")
+
+        print("-" * 60)
+
+        print(f"RSI14        : {last['RSI14']:.2f}")
+
+        print("-" * 60)
+
+        print(f"IS_BULLISH   : {last['IS_BULLISH']}")
+        print(f"IS_BEARISH   : {last['IS_BEARISH']}")
+
+        print("-" * 60)
+
+        print(f"BUY SCORE    : {signal['buy_score']}")
+        print(f"SELL SCORE   : {signal['sell_score']}")
+
+        print("=" * 60)
         # ==========================================
         # RISK
         # ==========================================
