@@ -1,119 +1,83 @@
-from typing import List
-
-from src.backtest.trade import Trade
+from __future__ import annotations
 
 
 class Statistics:
-    """
-    Calculates backtest statistics.
-    """
 
-    @staticmethod
-    def calculate(
-        trades: List[Trade],
-    ) -> dict:
+    def __init__(self):
 
-        if len(trades) == 0:
+        self.reset()
 
-            return {
+    def reset(self):
 
-                "total_trades": 0,
+        self.total_trades = 0
 
-                "wins": 0,
+        self.wins = 0
 
-                "losses": 0,
+        self.losses = 0
 
-                "win_rate": 0,
+        self.net_profit = 0.0
 
-                "net_profit": 0,
+        self.gross_profit = 0.0
 
-                "average_win": 0,
+        self.gross_loss = 0.0
 
-                "average_loss": 0,
+        self.average_win = 0.0
 
-                "profit_factor": 0,
+        self.average_loss = 0.0
 
-            }
+        self.profit_factor = 0.0
 
-        wins = [
-            t for t in trades
-            if t.result == "WIN"
-        ]
+        self.win_rate = 0.0
 
-        losses = [
-            t for t in trades
-            if t.result == "LOSS"
-        ]
+    def update(self, trade):
 
-        total_profit = sum(
-            t.profit for t in wins
-        )
+        self.total_trades += 1
 
-        total_loss = abs(
-            sum(
-                t.profit
-                for t in losses
-            )
-        )
+        self.net_profit += trade.profit
 
-        win_rate = (
-            len(wins)
-            / len(trades)
-            * 100
-        )
+        if trade.profit > 0:
 
-        average_win = (
+            self.wins += 1
 
-            total_profit / len(wins)
+            self.gross_profit += trade.profit
 
-            if wins else 0
+        else:
 
-        )
+            self.losses += 1
 
-        average_loss = (
+            self.gross_loss += abs(trade.profit)
 
-            total_loss / len(losses)
+        self._calculate()
 
-            if losses else 0
+    def _calculate(self):
 
-        )
+        if self.total_trades:
 
-        profit_factor = (
+            self.win_rate = self.wins / self.total_trades * 100
 
-            total_profit / total_loss
+        if self.wins:
 
-            if total_loss > 0 else 0
+            self.average_win = self.gross_profit / self.wins
 
-        )
+        if self.losses:
+
+            self.average_loss = self.gross_loss / self.losses
+
+        if self.gross_loss:
+
+            self.profit_factor = self.gross_profit / self.gross_loss
+        else:
+            self.profit_factor = 0
+
+    def summary(self):
 
         return {
-
-            "total_trades": len(trades),
-
-            "wins": len(wins),
-
-            "losses": len(losses),
-
-            "win_rate": round(win_rate, 2),
-
-            "net_profit": round(
-                total_profit - total_loss,
-                2,
-            ),
-
-            "average_win": round(
-                average_win,
-                2,
-            ),
-
-            "average_loss": round(
-                average_loss,
-                2,
-            ),
-
-            "profit_factor": round(
-                profit_factor,
-                2,
-            ),
-
+            "total_trades": self.total_trades,
+            "wins": self.wins,
+            "losses": self.losses,
+            "win_rate": round(self.win_rate, 2),
+            "net_profit": round(self.net_profit, 2),
+            "average_win": round(self.average_win, 2),
+            "average_loss": round(self.average_loss, 2),
+            "profit_factor": round(self.profit_factor, 2),
         }
