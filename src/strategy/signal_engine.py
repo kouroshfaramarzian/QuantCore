@@ -26,12 +26,17 @@ class SignalEngine(BaseStrategy):
         if buy_score > sell_score:
 
             if not TrendFilter.allow_buy(df):
-                buy_score = 0
+
+                buy_score -= 20
 
         elif sell_score > buy_score:
 
             if not TrendFilter.allow_sell(df):
-                sell_score = 0
+
+                sell_score -= 20
+
+        buy_score = max(0, buy_score)
+        sell_score = max(0, sell_score)
 
         # -----------------------------
         # Signal
