@@ -4,6 +4,7 @@ from src.features.trend import TrendIndicators
 from src.features.momentum import MomentumIndicators
 from src.features.volatility import VolatilityIndicators
 from src.features.candles import CandleFeatures
+from src.price_action.structure import MarketStructure
 
 class FeatureEngine:
     """
@@ -67,4 +68,5 @@ class FeatureEngine:
         df["IS_BEARISH"] = (
             CandleFeatures.bearish(df)
         )
+        df = MarketStructure.build(df)
         return df

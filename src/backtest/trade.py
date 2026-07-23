@@ -30,6 +30,14 @@ class Trade:
 
     profit: float
 
+    pips: float
+
     rr: float
 
     result: str
+
+    commission: float = 0.0
+
+    spread: float = 0.0
+
+    slippage: float = 0.0

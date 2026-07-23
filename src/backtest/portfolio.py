@@ -10,13 +10,7 @@ class Portfolio:
 
         self.initial_balance = initial_balance
 
-        self.balance = initial_balance
-
-        self.equity = initial_balance
-
-        self.max_balance = initial_balance
-
-        self.drawdown = 0
+        self.reset()
 
     def reset(self):
 
@@ -26,7 +20,13 @@ class Portfolio:
 
         self.max_balance = self.initial_balance
 
-        self.drawdown = 0
+        self.max_drawdown = 0.0
+
+        self.total_profit = 0.0
+
+        self.total_loss = 0.0
+
+        self.closed_trades = 0
 
     def update(
 
@@ -36,24 +36,46 @@ class Portfolio:
 
     ):
 
+        self.closed_trades += 1
+
         self.balance += trade.profit
 
         self.equity = self.balance
 
-        self.max_balance = max(
+        if trade.profit >= 0:
 
-            self.max_balance,
+            self.total_profit += trade.profit
 
-            self.balance,
+        else:
 
-        )
+            self.total_loss += abs(trade.profit)
 
-        current_dd = self.max_balance - self.balance
+        if self.balance > self.max_balance:
 
-        self.drawdown = max(
+            self.max_balance = self.balance
 
-            self.drawdown,
+        drawdown = self.max_balance - self.balance
 
-            current_dd,
+        if drawdown > self.max_drawdown:
 
-        )
+            self.max_drawdown = drawdown
+
+    def summary(self):
+
+        return {
+
+            "initial_balance": round(self.initial_balance, 2),
+
+            "balance": round(self.balance, 2),
+
+            "equity": round(self.equity, 2),
+
+            "closed_trades": self.closed_trades,
+
+            "gross_profit": round(self.total_profit, 2),
+
+            "gross_loss": round(self.total_loss, 2),
+
+            "max_drawdown": round(self.max_drawdown, 2),
+
+        }

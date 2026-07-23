@@ -1,6 +1,8 @@
 from src.backtest.engine import TradingEngine
 from src.backtest.position import Position
 
+from src.risk.risk_engine import RiskEngine
+
 
 class Backtester:
 
@@ -14,81 +16,119 @@ class Backtester:
 
         for i in range(1, len(df)):
 
-            signal = df.iloc[i]["signal"]
+            candle = df.iloc[i]
 
-            price = df.iloc[i]["close"]
+            signal = candle["signal"]
 
-            time = df.iloc[i].name
+            high = candle["high"]
 
-            # ---------------- BUY ----------------
+            low = candle["low"]
 
-            if signal == "BUY":
+            close = candle["close"]
 
-                if self.engine.position is None:
+            time = candle.name
 
-                    self.engine.open_position(
-                        Position(
-                            symbol="XAUUSD",
-                            direction="BUY",
-                            volume=1.0,
-                            entry_price=price,
-                            stop_loss=0,
-                            take_profit=0,
-                            open_time=time,
+            # =====================================
+            # CHECK OPEN POSITION
+            # =====================================
+
+            if self.engine.position is not None:
+
+                pos = self.engine.position
+
+                # ---------------- BUY ----------------
+
+                if pos.direction == "BUY":
+
+                    if low <= pos.stop_loss:
+
+                        self.engine.close_position(
+
+                            pos.stop_loss,
+
+                            time,
+
                         )
+
+                    elif high >= pos.take_profit:
+
+                        self.engine.close_position(
+
+                            pos.take_profit,
+
+                            time,
+
+                        )
+
+                # ---------------- SELL ----------------
+
+                elif pos.direction == "SELL":
+
+                    if high >= pos.stop_loss:
+
+                        self.engine.close_position(
+
+                            pos.stop_loss,
+
+                            time,
+
+                        )
+
+                    elif low <= pos.take_profit:
+
+                        self.engine.close_position(
+
+                            pos.take_profit,
+
+                            time,
+
+                        )
+
+            # =====================================
+            # OPEN NEW POSITION
+            # =====================================
+
+            if self.engine.position is None:
+
+                if signal in ("BUY", "SELL"):
+
+                    risk = RiskEngine.calculate(
+
+                        df.iloc[: i + 1],
+
+                        signal,
+
                     )
 
-                elif self.engine.position.direction == "SELL":
+                    if risk["entry"] is None:
 
-                    self.engine.close_position(price, time)
+                        continue
 
-                    self.engine.open_position(
-                        Position(
-                            symbol="XAUUSD",
-                            direction="BUY",
-                            volume=1.0,
-                            entry_price=price,
-                            stop_loss=0,
-                            take_profit=0,
-                            open_time=time,
-                        )
+                    position = Position(
+
+                        symbol="XAUUSD",
+
+                        direction=signal,
+
+                        volume=1.0,
+
+                        entry_price=risk["entry"],
+
+                        stop_loss=risk["stop_loss"],
+
+                        take_profit=risk["take_profit"],
+
+                        open_time=time,
+
                     )
 
-            # ---------------- SELL ----------------
+                    self.engine.open_position(position)
 
-            elif signal == "SELL":
+        # =====================================
+        # CLOSE LAST POSITION
+        # =====================================
 
-                if self.engine.position is None:
-
-                    self.engine.open_position(
-                        Position(
-                            symbol="XAUUSD",
-                            direction="SELL",
-                            volume=1.0,
-                            entry_price=price,
-                            stop_loss=0,
-                            take_profit=0,
-                            open_time=time,
-                        )
-                    )
-
-                elif self.engine.position.direction == "BUY":
-
-                    self.engine.close_position(price, time)
-
-                    self.engine.open_position(
-                        Position(
-                            symbol="XAUUSD",
-                            direction="SELL",
-                            volume=1.0,
-                            entry_price=price,
-                            stop_loss=0,
-                            take_profit=0,
-                            open_time=time,
-                        )
-                    )
-
-        if self.engine.position:
+        if self.engine.position is not None:
 
             self.engine.close_position(
 

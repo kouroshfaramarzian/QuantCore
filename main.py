@@ -22,8 +22,10 @@ from src.evaluation.walk_forward import WalkForwardValidator
 
 from src.execution.order import Order
 from src.execution.order_manager import OrderManager
-
-
+from src.market.swing import SwingDetector
+from src.market.bos import BOSDetector
+from src.market.choch import CHOCHDetector
+from src.context.market_state import MarketStateResolver
 def main():
 
     provider = MT5Provider()
@@ -49,7 +51,41 @@ def main():
         # ==========================================
 
         df = FeatureEngine.transform(df)
+        df = SwingDetector.detect(df)
+        df = BOSDetector.detect(df)
+        df = CHOCHDetector.detect(df)
+        train_df, validation_df, test_df = DataSplitter.split(df)
 
+        print("\n============== BOS ==============\n")
+
+        print(
+            test_df[
+                [
+                    "close",
+                    "SWING_HIGH",
+                    "SWING_LOW",
+                    "BULLISH_BOS",
+                    "BEARISH_BOS",
+                ]
+            ].tail(40)
+        )
+
+        print("\n===============================\n")
+
+        print("\n============== CHOCH ==============\n")
+
+        print(
+            test_df[
+                [
+                    "close",
+                    "STRUCTURE",
+                    "CHOCH_BULLISH",
+                    "CHOCH_BEARISH",
+                ]
+            ].tail(50)
+        )
+
+        print("\n===================================\n")
         # ==========================================
         # DATASET SPLIT
         # ==========================================
@@ -59,7 +95,7 @@ def main():
             DataSplitter.split(df)
 
         )
-
+        test_df = SwingDetector.detect(test_df)
         print()
 
         print("=" * 60)
@@ -91,6 +127,16 @@ def main():
         test_df = SignalEngine.generate_series(test_df)
 
         signal = SignalEngine.generate(test_df)
+        last_row = test_df.iloc[-1]
+
+        market_state = MarketStateResolver.resolve(last_row)
+
+        print()
+        print("=" * 60)
+        print("Market State")
+        print("=" * 60)
+
+        print(f"STATE : {market_state}")
 
         print()
 
@@ -120,8 +166,9 @@ def main():
 
         print("-" * 60)
 
-        print(f"BUY SCORE    : {signal['buy_score']}")
-        print(f"SELL SCORE   : {signal['sell_score']}")
+        print(f"Trend        : {signal['trend']}")
+        print(f"Trigger      : {signal['trigger']}")
+        
 
         print("=" * 60)
         # ==========================================
@@ -132,7 +179,7 @@ def main():
 
             test_df,
 
-            signal["signal"].value,
+            signal["signal"],
 
         )
 
@@ -149,9 +196,9 @@ def main():
         for trade in trades:
             statistics.update(trade)
 
-        stats = statistics.summary()
+        stats = statistics.summary(backtester.engine.portfolio)
         
-        # ==========================================
+                # ==========================================
         # LIVE SIGNAL
         # ==========================================
 
@@ -161,9 +208,9 @@ def main():
         print("                  QuantCore")
         print("=" * 60)
 
-        print(f"Signal       : {signal['signal'].value}")
-        print(f"BUY Score    : {signal['buy_score']}")
-        print(f"SELL Score   : {signal['sell_score']}")
+        print(f"Signal       : {signal['signal']}")
+        print(f"Trend        : {signal['trend']}")
+        print(f"Trigger      : {signal['trigger']}")
 
         print("-" * 60)
 

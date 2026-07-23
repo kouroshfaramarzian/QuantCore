@@ -8,42 +8,65 @@ class RiskEngine:
 
     @staticmethod
     def calculate(
+
         df: pd.DataFrame,
+
         signal: str,
+
         rr: float = 2.0,
+
         atr_multiplier: float = 2.0,
+
     ) -> dict:
 
         last = df.iloc[-1]
 
-        entry = last["close"]
+        entry = float(last["close"])
 
-        atr = last["ATR14"]
+        atr = float(last["ATR14"])
+
+        if atr <= 0:
+
+            return {
+
+                "entry": None,
+
+                "stop_loss": None,
+
+                "take_profit": None,
+
+                "risk": None,
+
+            }
 
         if signal == "BUY":
 
             stop_loss = entry - atr * atr_multiplier
 
-            take_profit = (
-                entry
-                + (entry - stop_loss) * rr
-            )
+            risk = entry - stop_loss
+
+            take_profit = entry + risk * rr
 
         elif signal == "SELL":
 
             stop_loss = entry + atr * atr_multiplier
 
-            take_profit = (
-                entry
-                - (stop_loss - entry) * rr
-            )
+            risk = stop_loss - entry
+
+            take_profit = entry - risk * rr
 
         else:
 
             return {
+
                 "entry": None,
+
                 "stop_loss": None,
+
                 "take_profit": None,
+
+                "risk": None,
+
             }
 
         return {
@@ -53,5 +76,9 @@ class RiskEngine:
             "stop_loss": round(stop_loss, 2),
 
             "take_profit": round(take_profit, 2),
+
+            "risk": round(risk, 2),
+
+            "rr": rr,
 
         }

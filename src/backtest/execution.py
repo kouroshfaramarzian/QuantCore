@@ -5,6 +5,10 @@ from src.backtest.trade import Trade
 
 class ExecutionEngine:
 
+    SPREAD = 0.20
+    COMMISSION = 0.00
+    POINT = 0.01
+
     def execute(
 
         self,
@@ -18,20 +22,34 @@ class ExecutionEngine:
     ) -> Trade:
 
         position.close(
-
             exit_price,
-
             exit_time,
-
         )
 
         if position.direction == "BUY":
 
-            profit = exit_price - position.entry_price
+            gross_profit = exit_price - position.entry_price
 
         else:
 
-            profit = position.entry_price - exit_price
+            gross_profit = position.entry_price - exit_price
+
+        gross_profit -= self.SPREAD
+        gross_profit -= self.COMMISSION
+
+        pips = gross_profit / self.POINT
+
+        if gross_profit > 0:
+
+            result = "WIN"
+
+        elif gross_profit < 0:
+
+            result = "LOSS"
+
+        else:
+
+            result = "BE"
 
         return Trade(
 
@@ -55,10 +73,12 @@ class ExecutionEngine:
 
             volume=position.volume,
 
-            profit=profit,
+            profit=gross_profit,
 
+            pips=pips,
+            
             rr=0,
 
-            result="WIN" if profit > 0 else "LOSS",
+            result=result,
 
         )

@@ -9,27 +9,31 @@ class Report:
         print()
 
         print("=" * 60)
-
         print("            QuantCore Backtest Report")
-
         print("=" * 60)
 
-        print(f"Total Trades   : {stats['total_trades']}")
-
-        print(f"Wins           : {stats['wins']}")
-
-        print(f"Losses         : {stats['losses']}")
-
-        print(f"Win Rate       : {stats['win_rate']} %")
+        print(f"Initial Balance : {stats.get('initial_balance', '-')}")
+        print(f"Final Balance   : {stats.get('balance', '-')}")
+        print(f"Equity          : {stats.get('equity', '-')}")
 
         print("-" * 60)
 
-        print(f"Net Profit     : {stats['net_profit']}")
+        print(f"Total Trades    : {stats.get('total_trades', 0)}")
+        print(f"Wins            : {stats.get('wins', 0)}")
+        print(f"Losses          : {stats.get('losses', 0)}")
+        print(f"Win Rate        : {stats.get('win_rate', 0)} %")
 
-        print(f"Average Win    : {stats['average_win']}")
+        print("-" * 60)
 
-        print(f"Average Loss   : {stats['average_loss']}")
+        print(f"Net Profit      : {stats.get('net_profit', 0)}")
+        print(f"Gross Profit    : {stats.get('gross_profit', 0)}")
+        print(f"Gross Loss      : {stats.get('gross_loss', 0)}")
 
-        print(f"Profit Factor  : {stats['profit_factor']}")
+        print("-" * 60)
+
+        print(f"Average Win     : {stats.get('average_win', 0)}")
+        print(f"Average Loss    : {stats.get('average_loss', 0)}")
+        print(f"Profit Factor   : {stats.get('profit_factor', 0)}")
+        print(f"Max Drawdown    : {stats.get('max_drawdown', 0)}")
 
         print("=" * 60)
