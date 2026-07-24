@@ -4,42 +4,156 @@ import pandas as pd
 
 
 class SignalEngine:
+
     """
-    QuantCore Signal Engine V4
+    QuantCore Signal Engine V7
 
-    تصمیم‌گیری فقط بر اساس:
+    Logic:
 
-        StructureEngine
-        BOS
+    RANGE:
+        HOLD
+
+
+    BULL:
+
+        Bull Structure
+        +
+        Fresh Bull BOS
+        +
+        Momentum Confirmation
+
+        =
+        BUY
+
+
+
+    BEAR:
+
+        Bear Structure
+        +
+        Fresh Bear BOS
+        +
+        Momentum Confirmation
+
+        =
+        SELL
+
+
+
+    Momentum:
+
+        MACD
+        RSI
         CHOCH
-        Momentum
 
-    قوانین:
 
-        RANGE  -> HOLD
+    EMA:
 
-        BULL:
-            بدون BOS -> HOLD
-            BOS + تایید -> BUY
+        فقط در StructureEngine استفاده می‌شود.
+        اینجا دخالت ندارد.
 
-        BEAR:
-            بدون BOS -> HOLD
-            BOS + تایید -> SELL
 
+    BOS Freshness:
+
+        BOS باید در آخرین N کندل باشد.
     """
+
+
+
+    BASE_CONFIDENCE = 20
+
+    BOS_LOOKBACK = 20
+
+
+
+    @staticmethod
+    def has_fresh_bos(
+        df: pd.DataFrame,
+        structure: str
+    ) -> bool:
+
+
+        if df is None or df.empty:
+
+            return False
+
+
+
+        start = max(
+            0,
+            len(df) - SignalEngine.BOS_LOOKBACK
+        )
+
+
+        recent = df.iloc[start:]
+
+
+
+        if structure == "BULL":
+
+
+            return bool(
+                recent[
+                    "BULLISH_BOS"
+                ].any()
+            )
+
+
+
+        if structure == "BEAR":
+
+
+            return bool(
+                recent[
+                    "BEARISH_BOS"
+                ].any()
+            )
+
+
+
+        return False
+
+
+
 
     @staticmethod
     def generate(
-        df: pd.DataFrame,
+        df: pd.DataFrame
     ) -> dict:
+
+
+
+        if df is None or df.empty:
+
+
+            return {
+
+                "signal":"HOLD",
+
+                "trigger":"HOLD",
+
+                "confidence":0,
+
+                "trend":"RANGE",
+
+                "reason":"No data"
+
+            }
+
+
+
 
         last = df.iloc[-1]
 
 
-        structure = last.get(
-            "STRUCTURE",
-            "RANGE"
-        )
+
+        structure = str(
+            last.get(
+                "STRUCTURE",
+                "RANGE"
+            )
+        ).upper()
+
 
 
         bullish_bos = bool(
@@ -58,7 +172,8 @@ class SignalEngine:
         )
 
 
-        choch_bullish = bool(
+
+        choch_bull = bool(
             last.get(
                 "CHOCH_BULLISH",
                 False
@@ -66,12 +181,13 @@ class SignalEngine:
         )
 
 
-        choch_bearish = bool(
+        choch_bear = bool(
             last.get(
                 "CHOCH_BEARISH",
                 False
             )
         )
+
 
 
         macd = float(
@@ -90,37 +206,57 @@ class SignalEngine:
         )
 
 
-        signal = "HOLD"
-
-        trigger = "HOLD"
 
         confidence = int(
             last.get(
                 "STRUCTURE_SCORE",
-                0
+                SignalEngine.BASE_CONFIDENCE
             )
         )
 
 
-        reason = []
+
+        reason=[]
 
 
-        # =====================================
+        signal="HOLD"
+
+
+
+
+        # ==========================
         # RANGE
-        # =====================================
-
-        if structure == "RANGE":
-
-            reason.append(
-                "Range"
-            )
+        # ==========================
 
 
-        # =====================================
+        if structure=="RANGE":
+
+
+            return {
+
+                "signal":"HOLD",
+
+                "trigger":"HOLD",
+
+                "confidence":confidence,
+
+                "trend":structure,
+
+                "reason":"Range Market"
+
+            }
+
+
+
+
+
+        # ==========================
         # BULL
-        # =====================================
+        # ==========================
 
-        elif structure == "BULL":
+
+        if structure=="BULL":
+
 
 
             reason.append(
@@ -128,69 +264,118 @@ class SignalEngine:
             )
 
 
-            if not bullish_bos:
+
+            fresh_bos = SignalEngine.has_fresh_bos(
+                df,
+                "BULL"
+            )
+
+
+
+            if not fresh_bos:
+
 
                 reason.append(
-                    "Waiting Bull BOS"
+                    "Waiting Fresh Bull BOS"
                 )
+
+
+                return {
+
+                    "signal":"HOLD",
+
+                    "trigger":"HOLD",
+
+                    "confidence":confidence,
+
+                    "trend":structure,
+
+                    "reason":", ".join(reason)
+
+                }
+
+
+
+            reason.append(
+                "Bull BOS Confirmed"
+            )
+
+
+
+            confirmation=False
+
+
+
+
+            if macd > 0:
+
+
+                confirmation=True
+
+
+                reason.append(
+                    "MACD Bull"
+                )
+
+
+
+            if rsi > 55:
+
+
+                confirmation=True
+
+
+                reason.append(
+                    "RSI Bull"
+                )
+
+
+
+            if choch_bull:
+
+
+                confirmation=True
+
+
+                reason.append(
+                    "Bull CHOCH"
+                )
+
+
+
+
+            if confirmation:
+
+
+                signal="BUY"
+
+
+                confidence=min(
+                    confidence+20,
+                    100
+                )
+
 
 
             else:
 
+
                 reason.append(
-                    "Bull BOS"
+                    "Waiting Momentum"
                 )
 
 
-                confirmation = False
-
-
-                if choch_bullish:
-
-                    reason.append(
-                        "Bull CHOCH"
-                    )
-
-                    confirmation = True
-
-
-                if macd > 0:
-
-                    reason.append(
-                        "MACD Bull"
-                    )
-
-                    confirmation = True
-
-
-                if rsi > 55:
-
-                    reason.append(
-                        "RSI Bull"
-                    )
-
-                    confirmation = True
 
 
 
-                if confirmation:
 
-                    signal = "BUY"
-
-                    trigger = "BUY"
-
-                    confidence = min(
-                        confidence + 20,
-                        100
-                    )
-
-
-
-        # =====================================
+        # ==========================
         # BEAR
-        # =====================================
+        # ==========================
 
-        elif structure == "BEAR":
+
+        elif structure=="BEAR":
+
 
 
             reason.append(
@@ -198,112 +383,180 @@ class SignalEngine:
             )
 
 
-            if not bearish_bos:
+
+            fresh_bos = SignalEngine.has_fresh_bos(
+                df,
+                "BEAR"
+            )
+
+
+
+            if not fresh_bos:
+
 
                 reason.append(
-                    "Waiting Bear BOS"
+                    "Waiting Fresh Bear BOS"
                 )
+
+
+                return {
+
+
+                    "signal":"HOLD",
+
+                    "trigger":"HOLD",
+
+                    "confidence":confidence,
+
+                    "trend":structure,
+
+                    "reason":", ".join(reason)
+
+                }
+
+
+
+            reason.append(
+                "Bear BOS Confirmed"
+            )
+
+
+
+            confirmation=False
+
+
+
+
+            if macd < 0:
+
+
+                confirmation=True
+
+
+                reason.append(
+                    "MACD Bear"
+                )
+
+
+
+            if rsi < 45:
+
+
+                confirmation=True
+
+
+                reason.append(
+                    "RSI Bear"
+                )
+
+
+
+            if choch_bear:
+
+
+                confirmation=True
+
+
+                reason.append(
+                    "Bear CHOCH"
+                )
+
+
+
+
+
+            if confirmation:
+
+
+                signal="SELL"
+
+
+                confidence=min(
+                    confidence+20,
+                    100
+                )
+
 
 
             else:
 
+
                 reason.append(
-                    "Bear BOS"
+                    "Waiting Momentum"
                 )
 
 
-                confirmation = False
 
 
 
-                if choch_bearish:
-
-                    reason.append(
-                        "Bear CHOCH"
-                    )
-
-                    confirmation = True
+        else:
 
 
-
-                if macd < 0:
-
-                    reason.append(
-                        "MACD Bear"
-                    )
-
-                    confirmation = True
+            reason.append(
+                "Unknown Structure"
+            )
 
 
-
-                if rsi < 45:
-
-                    reason.append(
-                        "RSI Bear"
-                    )
-
-                    confirmation = True
-
-
-
-                if confirmation:
-
-                    signal = "SELL"
-
-                    trigger = "SELL"
-
-                    confidence = min(
-                        confidence + 20,
-                        100
-                    )
 
 
 
         return {
 
-            "signal": signal,
 
-            "trigger": trigger,
+            "signal":signal,
 
-            "confidence": confidence,
 
-            "trend": structure,
+            "trigger":signal,
 
-            "reason": ", ".join(reason),
+
+            "confidence":confidence,
+
+
+            "trend":structure,
+
+
+            "reason":", ".join(reason)
+
 
         }
 
 
 
+
+
+
     @staticmethod
     def generate_series(
-        df: pd.DataFrame,
+        df: pd.DataFrame
     ) -> pd.DataFrame:
 
 
-        df = df.copy()
+
+        df=df.copy()
 
 
-        signals = []
+        signals=[]
 
-        triggers = []
+        triggers=[]
 
-        confidences = []
+        confidences=[]
 
-        trends = []
+        trends=[]
 
-        reasons = []
+        reasons=[]
 
 
 
-        for i in range(
-            len(df)
-        ):
+        for i in range(len(df)):
+
 
 
             result = SignalEngine.generate(
+
                 df.iloc[:i+1]
+
             )
+
 
 
             signals.append(
@@ -332,15 +585,17 @@ class SignalEngine:
 
 
 
-        df["signal"] = signals
 
-        df["trigger"] = triggers
+        df["signal"]=signals
 
-        df["confidence"] = confidences
+        df["trigger"]=triggers
 
-        df["trend"] = trends
+        df["confidence"]=confidences
 
-        df["reason"] = reasons
+        df["trend"]=trends
+
+        df["reason"]=reasons
+
 
 
         return df

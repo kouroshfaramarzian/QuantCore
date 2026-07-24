@@ -7,44 +7,22 @@ class StructureEngine:
     """
     QuantCore Structure Engine V5
 
-    Stateful Market Structure
+    Stateful Structure Memory
 
-    Logic:
-
-        BOS:
-            تغییر اصلی ساختار
-
-        CHOCH:
-            تغییر کاراکتر بازار
-
-        EMA:
-            تایید قدرت ساختار
-
-
-    خروجی:
-
-        STRUCTURE
-        STRUCTURE_SCORE
-        STRUCTURE_REASON
-
-
-    رفتار:
-
-        ساختار بعد از BOS حفظ می‌شود
-        تا زمانی که BOS/CHOCH مخالف رخ دهد.
+    حفظ:
+        BOS
+        CHOCH
+        Structure
 
     """
 
-
-    BOS_SCORE = 40
-    CHOCH_SCORE = 30
-    EMA_SCORE = 20
-
+    BULL_THRESHOLD = 40
+    BEAR_THRESHOLD = 40
 
 
     @staticmethod
     def build(
-        df: pd.DataFrame,
+        df: pd.DataFrame
     ) -> pd.DataFrame:
 
 
@@ -58,12 +36,33 @@ class StructureEngine:
         df["STRUCTURE_REASON"] = ""
 
 
+        # حفظ رویداد ساختاری
+
+        df["STRUCTURE_BULL_BOS"] = False
+
+        df["STRUCTURE_BEAR_BOS"] = False
+
+        df["STRUCTURE_BULL_CHOCH"] = False
+
+        df["STRUCTURE_BEAR_CHOCH"] = False
+
+
 
         current_structure = "RANGE"
 
         current_score = 0
 
-        current_reason = []
+        current_reason = ""
+
+
+
+        last_bull_bos = False
+
+        last_bear_bos = False
+
+        last_bull_choch = False
+
+        last_bear_choch = False
 
 
 
@@ -73,92 +72,116 @@ class StructureEngine:
             row = df.iloc[i]
 
 
+            bull_score = 0
 
-            # =================================
-            # BOS CHANGE
-            # =================================
+            bear_score = 0
 
 
-            if bool(
+            bull_reason = []
+
+            bear_reason = []
+
+
+
+            bull_bos = bool(
                 row.get(
                     "BULLISH_BOS",
                     False
                 )
-            ):
+            )
 
 
-                current_structure = "BULL"
-
-                current_score = StructureEngine.BOS_SCORE
-
-                current_reason = [
-                    "Bull BOS"
-                ]
-
-
-
-            elif bool(
+            bear_bos = bool(
                 row.get(
                     "BEARISH_BOS",
                     False
                 )
-            ):
-
-
-                current_structure = "BEAR"
-
-                current_score = StructureEngine.BOS_SCORE
-
-                current_reason = [
-                    "Bear BOS"
-                ]
+            )
 
 
 
-            # =================================
-            # CHOCH CHANGE
-            # =================================
-
-
-            if bool(
+            bull_choch = bool(
                 row.get(
                     "CHOCH_BULLISH",
                     False
                 )
-            ):
+            )
 
 
-                current_structure = "BULL"
-
-                current_score = StructureEngine.CHOCH_SCORE
-
-                current_reason = [
-                    "Bull CHOCH"
-                ]
-
-
-
-            elif bool(
+            bear_choch = bool(
                 row.get(
                     "CHOCH_BEARISH",
                     False
                 )
-            ):
+            )
 
 
-                current_structure = "BEAR"
 
-                current_score = StructureEngine.CHOCH_SCORE
+            # =====================
+            # BOS
+            # =====================
 
-                current_reason = [
+
+            if bull_bos:
+
+                bull_score += 40
+
+                bull_reason.append(
+                    "Bull BOS"
+                )
+
+                last_bull_bos = True
+
+                last_bear_bos = False
+
+
+
+            if bear_bos:
+
+                bear_score += 40
+
+                bear_reason.append(
+                    "Bear BOS"
+                )
+
+                last_bear_bos = True
+
+                last_bull_bos = False
+
+
+
+            # =====================
+            # CHOCH
+            # =====================
+
+
+            if bull_choch:
+
+                bull_score += 30
+
+                bull_reason.append(
+                    "Bull CHOCH"
+                )
+
+                last_bull_choch = True
+
+
+
+            if bear_choch:
+
+                bear_score += 30
+
+                bear_reason.append(
                     "Bear CHOCH"
-                ]
+                )
+
+                last_bear_choch = True
 
 
 
-            # =================================
-            # EMA CONFIRMATION
-            # =================================
+            # =====================
+            # EMA
+            # =====================
 
 
             ema20 = row.get(
@@ -177,71 +200,103 @@ class StructureEngine:
             )
 
 
-
-            score = current_score
-
-            reasons = list(
-                current_reason
-            )
+            if ema20 > ema50 > ema200:
 
 
+                bull_score += 20
 
-            if current_structure == "BULL":
+                bull_reason.append(
+                    "EMA Bull"
+                )
 
 
-                if ema20 > ema50 > ema200:
+
+            elif ema20 < ema50 < ema200:
 
 
-                    score += StructureEngine.EMA_SCORE
+                bear_score += 20
 
-                    reasons.append(
-                        "EMA Bull"
+                bear_reason.append(
+                    "EMA Bear"
+                )
+
+
+
+            # =====================
+            # New Event
+            # =====================
+
+
+            if (
+                bull_score >= StructureEngine.BEAR_THRESHOLD
+                and bull_score > bear_score
+            ):
+
+
+                current_structure = "BULL"
+
+                current_score = min(
+                    bull_score,
+                    100
+                )
+
+                current_reason = ", ".join(
+                    bull_reason
+                )
+
+
+
+            elif (
+                bear_score >= StructureEngine.BULL_THRESHOLD
+                and bear_score > bull_score
+            ):
+
+
+                current_structure = "BEAR"
+
+                current_score = min(
+                    bear_score,
+                    100
+                )
+
+                current_reason = ", ".join(
+                    bear_reason
+                )
+
+
+
+            else:
+
+
+                if current_structure != "RANGE":
+
+                    current_score = max(
+                        current_score,
+                        20
                     )
 
 
 
-            elif current_structure == "BEAR":
+            idx = df.index[i]
 
 
-                if ema20 < ema50 < ema200:
+            df.at[idx,"STRUCTURE"] = current_structure
 
+            df.at[idx,"STRUCTURE_SCORE"] = current_score
 
-                    score += StructureEngine.EMA_SCORE
-
-                    reasons.append(
-                        "EMA Bear"
-                    )
+            df.at[idx,"STRUCTURE_REASON"] = current_reason
 
 
 
-            # =================================
-            # SAVE
-            # =================================
+            # حفظ BOS/CHOCH
 
+            df.at[idx,"STRUCTURE_BULL_BOS"] = last_bull_bos
 
-            df.at[
-                df.index[i],
-                "STRUCTURE"
-            ] = current_structure
+            df.at[idx,"STRUCTURE_BEAR_BOS"] = last_bear_bos
 
+            df.at[idx,"STRUCTURE_BULL_CHOCH"] = last_bull_choch
 
-
-            df.at[
-                df.index[i],
-                "STRUCTURE_SCORE"
-            ] = min(
-                score,
-                100
-            )
-
-
-
-            df.at[
-                df.index[i],
-                "STRUCTURE_REASON"
-            ] = ", ".join(
-                reasons
-            )
+            df.at[idx,"STRUCTURE_BEAR_CHOCH"] = last_bear_choch
 
 
 

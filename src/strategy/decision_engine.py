@@ -3,162 +3,158 @@ from __future__ import annotations
 
 class DecisionEngine:
     """
-    QuantCore Decision Engine V3
+    QuantCore Decision Engine V5
 
-    آخرین لایه تصمیم گیری
+    Final gate.
 
-    فقط خروجی SignalEngine را قبول می‌کند.
+    فقط خروجی SignalEngine را بررسی می‌کند.
+
+    جلوگیری از:
+        Signal BUY -> Decision HOLD
+        Signal SELL -> Decision HOLD
     """
 
-    BUY_CONFIDENCE = 70
-    SELL_CONFIDENCE = 70
+
+    MIN_CONFIDENCE = 30
+
 
     @staticmethod
     def decide(
 
-        structure: str,
-
-        bullish_bos: bool,
-
-        bearish_bos: bool,
-
-        choch_bullish: bool,
-
-        choch_bearish: bool,
-
-        trigger: str,
+        signal: str,
 
         confidence: int,
 
+        trend: str,
+
+        reason: str,
+
     ) -> dict:
 
-        # ==========================================
-        # RANGE
-        # ==========================================
 
-        if structure == "RANGE":
+        signal = signal.upper()
+
+        trend = trend.upper()
+
+
+
+        # ==========================
+        # HOLD
+        # ==========================
+
+        if signal == "HOLD":
 
             return {
 
                 "signal": "HOLD",
 
-                "reason": "Range market",
+                "reason": reason,
 
-                "confidence": 0,
+                "confidence": confidence,
 
             }
 
-        # ==========================================
-        # BULL
-        # ==========================================
 
-        if structure == "BULL":
 
-            if not bullish_bos:
+        # ==========================
+        # BUY
+        # ==========================
 
-                return {
+        if signal == "BUY":
 
-                    "signal": "HOLD",
 
-                    "reason": "Bull structure waiting confirmation",
-
-                    "confidence": confidence,
-
-                }
-
-            if trigger != "BUY":
+            if trend != "BULL":
 
                 return {
 
                     "signal": "HOLD",
 
-                    "reason": "Bull structure but no BUY trigger",
+                    "reason": "BUY rejected - trend mismatch",
 
                     "confidence": confidence,
 
                 }
 
-            if confidence < DecisionEngine.BUY_CONFIDENCE:
+
+
+            if confidence < DecisionEngine.MIN_CONFIDENCE:
 
                 return {
 
                     "signal": "HOLD",
 
-                    "reason": "Low confidence",
+                    "reason": "BUY low confidence",
 
                     "confidence": confidence,
 
                 }
+
+
 
             return {
 
                 "signal": "BUY",
 
-                "reason": "Bull BOS confirmed",
+                "reason": reason,
 
                 "confidence": confidence,
 
             }
 
-        # ==========================================
-        # BEAR
-        # ==========================================
 
-        if structure == "BEAR":
 
-            if not bearish_bos:
+        # ==========================
+        # SELL
+        # ==========================
 
-                return {
+        if signal == "SELL":
 
-                    "signal": "HOLD",
 
-                    "reason": "Bear structure waiting confirmation",
-
-                    "confidence": confidence,
-
-                }
-
-            if trigger != "SELL":
+            if trend != "BEAR":
 
                 return {
 
                     "signal": "HOLD",
 
-                    "reason": "Bear structure but no SELL trigger",
+                    "reason": "SELL rejected - trend mismatch",
 
                     "confidence": confidence,
 
                 }
 
-            if confidence < DecisionEngine.SELL_CONFIDENCE:
+
+
+            if confidence < DecisionEngine.MIN_CONFIDENCE:
 
                 return {
 
                     "signal": "HOLD",
 
-                    "reason": "Low confidence",
+                    "reason": "SELL low confidence",
 
                     "confidence": confidence,
 
                 }
+
+
 
             return {
 
                 "signal": "SELL",
 
-                "reason": "Bear BOS confirmed",
+                "reason": reason,
 
                 "confidence": confidence,
 
             }
 
-        # ==========================================
+
 
         return {
 
             "signal": "HOLD",
 
-            "reason": "Unknown",
+            "reason": "Unknown signal",
 
             "confidence": 0,
 

@@ -2,6 +2,7 @@ from src.backtest.engine import TradingEngine
 from src.backtest.position import Position
 
 from src.risk.risk_engine import RiskEngine
+from src.strategy.decision_engine import DecisionEngine
 
 
 
@@ -14,12 +15,11 @@ class Backtester:
 
 
 
-    def run(
-        self,
-        df
-    ):
+    def run(self, df):
+
 
         self.engine.reset()
+
 
 
         for i in range(1, len(df)):
@@ -31,10 +31,74 @@ class Backtester:
             time = candle.name
 
 
-            signal = candle.get(
+            raw_signal = candle.get(
+
                 "signal",
+
                 "HOLD"
+
             )
+
+
+            confidence = int(
+
+                candle.get(
+
+                    "confidence",
+
+                    0
+
+                )
+
+            )
+
+
+            trend = candle.get(
+
+                "trend",
+
+                "RANGE"
+
+            )
+
+
+            reason = candle.get(
+
+                "reason",
+
+                ""
+
+            )
+
+
+
+            # =====================================
+            # DECISION GATE
+            # =====================================
+
+
+            decision = DecisionEngine.decide(
+
+                signal=raw_signal,
+
+                confidence=confidence,
+
+                trend=trend,
+
+                reason=reason,
+
+            )
+
+
+
+            signal = decision.get(
+
+                "signal",
+
+                "HOLD"
+
+            )
+
 
 
             high = candle["high"]
@@ -45,9 +109,11 @@ class Backtester:
 
 
 
+
             # =====================================
-            # MANAGE OPEN POSITION
+            # MANAGE POSITION
             # =====================================
+
 
             if self.engine.position is not None:
 
@@ -56,8 +122,6 @@ class Backtester:
 
 
 
-                # BUY
-
                 if pos.direction == "BUY":
 
 
@@ -65,8 +129,11 @@ class Backtester:
 
 
                         self.engine.close_position(
+
                             pos.stop_loss,
+
                             time
+
                         )
 
 
@@ -74,13 +141,15 @@ class Backtester:
 
 
                         self.engine.close_position(
+
                             pos.take_profit,
+
                             time
+
                         )
 
 
 
-                # SELL
 
                 elif pos.direction == "SELL":
 
@@ -89,8 +158,11 @@ class Backtester:
 
 
                         self.engine.close_position(
+
                             pos.stop_loss,
+
                             time
+
                         )
 
 
@@ -98,9 +170,13 @@ class Backtester:
 
 
                         self.engine.close_position(
+
                             pos.take_profit,
+
                             time
+
                         )
+
 
 
 
@@ -108,83 +184,107 @@ class Backtester:
             # OPEN POSITION
             # =====================================
 
+
             if self.engine.position is None:
 
 
-                if signal in (
+
+                if signal not in (
+
                     "BUY",
+
                     "SELL"
+
                 ):
 
-
-
-                    print(
-                        "TRADE:",
-                        time,
-                        signal,
-                        "STRUCTURE:",
-                        candle.get(
-                            "STRUCTURE"
-                        ),
-                        "BOS:",
-                        candle.get(
-                            "BULLISH_BOS"
-                        ),
-                        candle.get(
-                            "BEARISH_BOS"
-                        )
-                    )
+                    continue
 
 
 
-                    risk = RiskEngine.calculate(
 
-                        df.iloc[:i+1],
+                risk = RiskEngine.calculate(
 
-                        signal
+                    df.iloc[:i+1],
 
-                    )
+                    signal
 
-
-
-                    if (
-                        risk["entry"]
-                        is None
-                    ):
-
-                        continue
+                )
 
 
 
-                    position = Position(
-
-                        symbol="XAUUSD",
-
-                        direction=signal,
-
-                        volume=1.0,
-
-                        entry_price=risk["entry"],
-
-                        stop_loss=risk["stop_loss"],
-
-                        take_profit=risk["take_profit"],
-
-                        open_time=time
-
-                    )
+                if risk["entry"] is None:
 
 
-                    self.engine.open_position(
-                        position
-                    )
+                    continue
+
+
+
+
+                print(
+
+                    "TRADE:",
+
+                    time,
+
+                    signal,
+
+                    "STRUCTURE:",
+
+                    candle.get(
+
+                        "STRUCTURE"
+
+                    ),
+
+                    "DECISION:",
+
+                    decision
+
+                )
+
+
+
+                position = Position(
+
+
+                    symbol="XAUUSD",
+
+
+                    direction=signal,
+
+
+                    volume=1.0,
+
+
+                    entry_price=risk["entry"],
+
+
+                    stop_loss=risk["stop_loss"],
+
+
+                    take_profit=risk["take_profit"],
+
+
+                    open_time=time
+
+
+                )
+
+
+
+                self.engine.open_position(
+
+                    position
+
+                )
 
 
 
 
         # =====================================
-        # CLOSE REMAINING POSITION
+        # CLOSE LAST POSITION
         # =====================================
+
 
         if self.engine.position is not None:
 
@@ -206,6 +306,8 @@ class Backtester:
 
 
 
+
     def statistics(self):
+
 
         return self.engine.report()
