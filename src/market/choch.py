@@ -5,124 +5,88 @@ import pandas as pd
 
 class CHOCHDetector:
     """
-    Change Of Character Detector
+    QuantCore CHOCH Detector V2
 
-    Detects market structure change.
+    Change Of Character
 
-    Bear structure:
-        bearish BOS -> trend down
+    نیازمند:
 
-    Bullish CHOCH:
-        price breaks previous swing high
-        while structure was bearish
+        BULLISH_BOS
+        BEARISH_BOS
+        STRUCTURE
 
-    Bearish CHOCH:
-        price breaks previous swing low
-        while structure was bullish
+    خروجی:
+
+        CHOCH_BULLISH
+        CHOCH_BEARISH
+
+        CHOCH_LEVEL
+        CHOCH_DIRECTION
     """
 
     @staticmethod
-    def detect(
-        df: pd.DataFrame,
-    ) -> pd.DataFrame:
+    def detect(df: pd.DataFrame) -> pd.DataFrame:
 
         df = df.copy()
 
         df["CHOCH_BULLISH"] = False
         df["CHOCH_BEARISH"] = False
-        df["STRUCTURE"] = "RANGE"
 
-        structure = "RANGE"
+        df["CHOCH_LEVEL"] = None
+        df["CHOCH_DIRECTION"] = None
 
-        last_swing_high = None
-        last_swing_low = None
-
+        previous_structure = None
 
         for i in range(len(df)):
 
             row = df.iloc[i]
 
+            structure = row.get("STRUCTURE", "RANGE")
 
-            if row["SWING_HIGH"]:
+            bull_bos = bool(row.get("BULLISH_BOS", False))
+            bear_bos = bool(row.get("BEARISH_BOS", False))
 
-                last_swing_high = row["high"]
+            # اولین مقدار
+            if previous_structure is None:
+                previous_structure = structure
+                continue
 
+            # -----------------------------------
+            # BEAR -> BULL
+            # -----------------------------------
 
-            if row["SWING_LOW"]:
+            if (
+                previous_structure == "BEAR"
+                and structure == "BULL"
+                and bull_bos
+            ):
 
-                last_swing_low = row["low"]
+                df.at[df.index[i], "CHOCH_BULLISH"] = True
 
+                df.at[df.index[i], "CHOCH_DIRECTION"] = "BULL"
 
+                df.at[df.index[i], "CHOCH_LEVEL"] = row.get(
+                    "LAST_STRUCTURE_HIGH"
+                )
 
-            # =========================
-            # Bearish structure
-            # =========================
+            # -----------------------------------
+            # BULL -> BEAR
+            # -----------------------------------
 
-            if structure == "BEAR":
+            elif (
+                previous_structure == "BULL"
+                and structure == "BEAR"
+                and bear_bos
+            ):
 
-                if (
-                    last_swing_high is not None
-                    and row["close"] > last_swing_high
-                ):
+                df.at[df.index[i], "CHOCH_BEARISH"] = True
 
-                    df.at[
-                        df.index[i],
-                        "CHOCH_BULLISH"
-                    ] = True
+                df.at[df.index[i], "CHOCH_DIRECTION"] = "BEAR"
 
+                df.at[df.index[i], "CHOCH_LEVEL"] = row.get(
+                    "LAST_STRUCTURE_LOW"
+                )
 
-                    structure = "BULL"
-
-
-
-            # =========================
-            # Bullish structure
-            # =========================
-
-            elif structure == "BULL":
-
-                if (
-                    last_swing_low is not None
-                    and row["close"] < last_swing_low
-                ):
-
-                    df.at[
-                        df.index[i],
-                        "CHOCH_BEARISH"
-                    ] = True
-
-
-                    structure = "BEAR"
-
-
-
-            # =========================
-            # Initial detection
-            # =========================
-
-            else:
-
-                if (
-                    last_swing_high is not None
-                    and row["close"] > last_swing_high
-                ):
-
-                    structure = "BULL"
-
-
-                elif (
-                    last_swing_low is not None
-                    and row["close"] < last_swing_low
-                ):
-
-                    structure = "BEAR"
-
-
-
-            df.at[
-                df.index[i],
-                "STRUCTURE"
-            ] = structure
-
+            previous_structure = structure
 
         return df

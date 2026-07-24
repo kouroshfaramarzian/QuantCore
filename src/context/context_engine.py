@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from datetime import datetime
+
 import pandas as pd
 
 from src.context.market_context import MarketContext
@@ -5,63 +9,51 @@ from src.context.market_context import MarketContext
 
 class ContextEngine:
     """
-    Builds a high-level market context from features.
+    QuantCore Context Engine V2
+
+    این کلاس دیگر روند را محاسبه نمی‌کند.
+
+    فقط خروجی StructureEngine را می‌خواند.
     """
 
     @staticmethod
-    def build(
-        df: pd.DataFrame,
-    ) -> MarketContext:
+    def build(df: pd.DataFrame) -> MarketContext:
 
         last = df.iloc[-1]
 
-        # -----------------------------
+        # =====================================
         # Trend
-        # -----------------------------
+        # =====================================
 
-        if (
-            last["EMA20"]
-            > last["EMA50"]
-            > last["EMA200"]
-        ):
+        trend = last.get("STRUCTURE", "RANGE")
 
-            trend = "BULL"
-
-        elif (
-            last["EMA20"]
-            < last["EMA50"]
-            < last["EMA200"]
-        ):
-
-            trend = "BEAR"
-
-        else:
-
-            trend = "RANGE"
-
-        # -----------------------------
+        # =====================================
         # Momentum
-        # -----------------------------
+        # =====================================
 
-        if last["RSI14"] >= 60:
+        rsi = float(last.get("RSI14", 50))
 
-            momentum = "STRONG_BULL"
+        if rsi >= 60:
 
-        elif last["RSI14"] <= 40:
+            momentum = "BULLISH"
 
-            momentum = "STRONG_BEAR"
+        elif rsi <= 40:
+
+            momentum = "BEARISH"
 
         else:
 
             momentum = "NEUTRAL"
 
-        # -----------------------------
+        # =====================================
         # Volatility
-        # -----------------------------
+        # =====================================
+
+        atr = float(last.get("ATR14", 0))
 
         atr_mean = df["ATR14"].tail(50).mean()
 
-        if last["ATR14"] > atr_mean:
+        if atr > atr_mean:
 
             volatility = "HIGH"
 
@@ -69,11 +61,23 @@ class ContextEngine:
 
             volatility = "LOW"
 
-        # -----------------------------
+        # =====================================
         # Session
-        # -----------------------------
+        # =====================================
 
-        hour = last["time"].hour
+        t = last["time"]
+
+        if isinstance(t, pd.Timestamp):
+
+            hour = t.hour
+
+        elif isinstance(t, datetime):
+
+            hour = t.hour
+
+        else:
+
+            hour = datetime.now().hour
 
         if 7 <= hour < 15:
 
@@ -87,6 +91,14 @@ class ContextEngine:
 
             session = "ASIA"
 
+        # =====================================
+        # Confidence
+        # =====================================
+
+        confidence = int(last.get("STRUCTURE_SCORE", 0))
+
+        # =====================================
+
         return MarketContext(
 
             trend=trend,
@@ -96,5 +108,9 @@ class ContextEngine:
             volatility=volatility,
 
             session=session,
+
+            confidence=confidence,
+
+            source="StructureEngine",
 
         )

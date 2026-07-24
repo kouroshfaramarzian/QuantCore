@@ -5,52 +5,28 @@ import pandas as pd
 
 class SignalEngine:
     """
-    QuantCore Signal Engine V2.1
+    QuantCore Signal Engine V4
 
-    Decision priority:
+    تصمیم‌گیری فقط بر اساس:
 
-    1. Market Structure
-    2. BOS / CHOCH
-    3. Momentum
-    4. EMA confirmation
+        StructureEngine
+        BOS
+        CHOCH
+        Momentum
 
-    Never trade against structure.
+    قوانین:
+
+        RANGE  -> HOLD
+
+        BULL:
+            بدون BOS -> HOLD
+            BOS + تایید -> BUY
+
+        BEAR:
+            بدون BOS -> HOLD
+            BOS + تایید -> SELL
+
     """
-
-    @staticmethod
-    def generate_series(
-        df: pd.DataFrame,
-    ) -> pd.DataFrame:
-
-        df = df.copy()
-
-        results = []
-
-        for _, row in df.iterrows():
-
-            results.append(
-                SignalEngine._evaluate(row)
-            )
-
-
-        df["signal"] = [
-            x["signal"]
-            for x in results
-        ]
-
-        df["confidence"] = [
-            x["confidence"]
-            for x in results
-        ]
-
-        df["reason"] = [
-            x["reason"]
-            for x in results
-        ]
-
-        return df
-
-
 
     @staticmethod
     def generate(
@@ -59,306 +35,312 @@ class SignalEngine:
 
         last = df.iloc[-1]
 
-        return SignalEngine._evaluate(
-            last
-        )
 
-
-
-    @staticmethod
-    def _evaluate(
-        row,
-    ) -> dict:
-
-
-        structure = row.get(
+        structure = last.get(
             "STRUCTURE",
             "RANGE"
         )
 
 
         bullish_bos = bool(
-            row.get(
+            last.get(
                 "BULLISH_BOS",
                 False
             )
         )
 
+
         bearish_bos = bool(
-            row.get(
+            last.get(
                 "BEARISH_BOS",
                 False
             )
         )
 
 
-        bullish_choch = bool(
-            row.get(
+        choch_bullish = bool(
+            last.get(
                 "CHOCH_BULLISH",
                 False
             )
         )
 
-        bearish_choch = bool(
-            row.get(
+
+        choch_bearish = bool(
+            last.get(
                 "CHOCH_BEARISH",
                 False
             )
         )
 
 
-        macd = row.get(
-            "MACD",
-            0
-        )
-
-        macd_signal = row.get(
-            "MACD_SIGNAL",
-            0
+        macd = float(
+            last.get(
+                "MACD",
+                0
+            )
         )
 
 
-        rsi = row.get(
-            "RSI14",
-            50
+        rsi = float(
+            last.get(
+                "RSI14",
+                50
+            )
         )
 
 
-        ema20 = row.get(
-            "EMA20",
-            0
-        )
+        signal = "HOLD"
 
-        ema50 = row.get(
-            "EMA50",
-            0
-        )
+        trigger = "HOLD"
 
-        ema200 = row.get(
-            "EMA200",
-            0
+        confidence = int(
+            last.get(
+                "STRUCTURE_SCORE",
+                0
+            )
         )
 
 
-        buy_score = 0
-
-        sell_score = 0
-
-        reasons = []
+        reason = []
 
 
+        # =====================================
+        # RANGE
+        # =====================================
 
-        # =========================
-        # STRUCTURE
-        # =========================
+        if structure == "RANGE":
 
-        if structure == "BULL":
+            reason.append(
+                "Range"
+            )
 
-            buy_score += 40
 
-            reasons.append(
+        # =====================================
+        # BULL
+        # =====================================
+
+        elif structure == "BULL":
+
+
+            reason.append(
                 "Bull Structure"
             )
 
 
+            if not bullish_bos:
+
+                reason.append(
+                    "Waiting Bull BOS"
+                )
+
+
+            else:
+
+                reason.append(
+                    "Bull BOS"
+                )
+
+
+                confirmation = False
+
+
+                if choch_bullish:
+
+                    reason.append(
+                        "Bull CHOCH"
+                    )
+
+                    confirmation = True
+
+
+                if macd > 0:
+
+                    reason.append(
+                        "MACD Bull"
+                    )
+
+                    confirmation = True
+
+
+                if rsi > 55:
+
+                    reason.append(
+                        "RSI Bull"
+                    )
+
+                    confirmation = True
+
+
+
+                if confirmation:
+
+                    signal = "BUY"
+
+                    trigger = "BUY"
+
+                    confidence = min(
+                        confidence + 20,
+                        100
+                    )
+
+
+
+        # =====================================
+        # BEAR
+        # =====================================
+
         elif structure == "BEAR":
 
-            sell_score += 40
 
-            reasons.append(
+            reason.append(
                 "Bear Structure"
             )
 
 
+            if not bearish_bos:
 
-        # =========================
-        # BOS
-        # =========================
+                reason.append(
+                    "Waiting Bear BOS"
+                )
 
-        if bullish_bos:
 
-            buy_score += 25
+            else:
 
-            reasons.append(
-                "Bullish BOS"
-            )
+                reason.append(
+                    "Bear BOS"
+                )
 
 
-        if bearish_bos:
+                confirmation = False
 
-            sell_score += 25
 
-            reasons.append(
-                "Bearish BOS"
-            )
 
+                if choch_bearish:
 
+                    reason.append(
+                        "Bear CHOCH"
+                    )
 
-        # =========================
-        # CHOCH
-        # =========================
+                    confirmation = True
 
-        if bullish_choch:
 
-            buy_score += 15
 
-            reasons.append(
-                "Bullish CHOCH"
-            )
+                if macd < 0:
 
+                    reason.append(
+                        "MACD Bear"
+                    )
 
-        if bearish_choch:
+                    confirmation = True
 
-            sell_score += 15
 
-            reasons.append(
-                "Bearish CHOCH"
-            )
 
+                if rsi < 45:
 
+                    reason.append(
+                        "RSI Bear"
+                    )
 
-        # =========================
-        # MACD
-        # =========================
+                    confirmation = True
 
-        if macd > macd_signal:
 
-            buy_score += 10
 
-            reasons.append(
-                "MACD Bull"
-            )
+                if confirmation:
 
-        else:
+                    signal = "SELL"
 
-            sell_score += 10
+                    trigger = "SELL"
 
-            reasons.append(
-                "MACD Bear"
-            )
-
-
-
-        # =========================
-        # RSI
-        # =========================
-
-        if rsi < 45:
-
-            sell_score += 5
-
-            reasons.append(
-                "RSI Weak"
-            )
-
-
-        elif rsi > 55:
-
-            buy_score += 5
-
-            reasons.append(
-                "RSI Strong"
-            )
-
-
-
-        # =========================
-        # EMA
-        # =========================
-
-        if (
-            ema20 >
-            ema50 >
-            ema200
-        ):
-
-            buy_score += 10
-
-            reasons.append(
-                "EMA Bull"
-            )
-
-
-        elif (
-            ema20 <
-            ema50 <
-            ema200
-        ):
-
-            sell_score += 10
-
-            reasons.append(
-                "EMA Bear"
-            )
-
-
-
-        # =========================
-        # FINAL DECISION
-        # =========================
-
-
-        if buy_score >= 65:
-
-            return {
-
-                "signal": "BUY",
-
-                "trend": structure,
-
-                "trigger": "BUY",
-
-                "confidence": buy_score,
-
-                "buy_score": buy_score,
-
-                "sell_score": sell_score,
-
-                "reason": ", ".join(reasons),
-
-            }
-
-
-
-        if sell_score >= 65:
-
-            return {
-
-                "signal": "SELL",
-
-                "trend": structure,
-
-                "trigger": "SELL",
-
-                "confidence": sell_score,
-
-                "buy_score": buy_score,
-
-                "sell_score": sell_score,
-
-                "reason": ", ".join(reasons),
-
-            }
+                    confidence = min(
+                        confidence + 20,
+                        100
+                    )
 
 
 
         return {
 
-            "signal": "HOLD",
+            "signal": signal,
+
+            "trigger": trigger,
+
+            "confidence": confidence,
 
             "trend": structure,
 
-            "trigger": "NONE",
-
-            "confidence": max(
-                buy_score,
-                sell_score
-            ),
-
-            "buy_score": buy_score,
-
-            "sell_score": sell_score,
-
-            "reason": ", ".join(reasons),
+            "reason": ", ".join(reason),
 
         }
+
+
+
+    @staticmethod
+    def generate_series(
+        df: pd.DataFrame,
+    ) -> pd.DataFrame:
+
+
+        df = df.copy()
+
+
+        signals = []
+
+        triggers = []
+
+        confidences = []
+
+        trends = []
+
+        reasons = []
+
+
+
+        for i in range(
+            len(df)
+        ):
+
+
+            result = SignalEngine.generate(
+                df.iloc[:i+1]
+            )
+
+
+            signals.append(
+                result["signal"]
+            )
+
+
+            triggers.append(
+                result["trigger"]
+            )
+
+
+            confidences.append(
+                result["confidence"]
+            )
+
+
+            trends.append(
+                result["trend"]
+            )
+
+
+            reasons.append(
+                result["reason"]
+            )
+
+
+
+        df["signal"] = signals
+
+        df["trigger"] = triggers
+
+        df["confidence"] = confidences
+
+        df["trend"] = trends
+
+        df["reason"] = reasons
+
+
+        return df

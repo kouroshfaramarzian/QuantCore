@@ -1,10 +1,13 @@
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
 class MarketContext:
     """
-    Represents the current market state.
+    QuantCore Market Context
+
+    خروجی نهایی ContextEngine
     """
 
     trend: str
@@ -14,3 +17,9 @@ class MarketContext:
     volatility: str
 
     session: str
+
+    # Debug information
+
+    confidence: Optional[str] = None
+
+    source: Optional[str] = None
