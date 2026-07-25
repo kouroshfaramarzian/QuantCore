@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from src.backtest.engine import TradingEngine
 from src.backtest.position import Position
 
@@ -15,181 +17,173 @@ class Backtester:
 
 
 
-    def run(self, df):
+    def run(
+        self,
+        df
+    ):
 
 
         self.engine.reset()
 
 
-
-        for i in range(1, len(df)):
-
-
-            candle = df.iloc[i]
-
-
-            time = candle.name
+        for i in range(
+            1,
+            len(df) - 1
+        ):
 
 
-            raw_signal = candle.get(
+            signal_candle = df.iloc[i]
 
+
+            execution_candle = df.iloc[i + 1]
+
+
+            signal_time = signal_candle.name
+
+
+            execution_time = execution_candle.name
+
+
+
+            signal = signal_candle.get(
                 "signal",
-
                 "HOLD"
-
             )
 
 
             confidence = int(
-
-                candle.get(
-
+                signal_candle.get(
                     "confidence",
-
                     0
-
                 )
-
             )
 
 
-            trend = candle.get(
-
+            trend = signal_candle.get(
                 "trend",
-
                 "RANGE"
-
             )
 
 
-            reason = candle.get(
-
+            reason = signal_candle.get(
                 "reason",
-
                 ""
-
             )
 
-
-
-            # =====================================
-            # DECISION GATE
-            # =====================================
 
 
             decision = DecisionEngine.decide(
 
-                signal=raw_signal,
+                signal=signal,
 
                 confidence=confidence,
 
                 trend=trend,
 
-                reason=reason,
+                reason=reason
 
             )
 
 
 
-            signal = decision.get(
-
+            final_signal = decision.get(
                 "signal",
-
                 "HOLD"
-
             )
 
 
 
-            high = candle["high"]
+            high = signal_candle["high"]
 
-            low = candle["low"]
-
-            close = candle["close"]
+            low = signal_candle["low"]
 
 
 
 
-            # =====================================
-            # MANAGE POSITION
-            # =====================================
+            # ============================
+            # CLOSE POSITION
+            # ============================
 
 
             if self.engine.position is not None:
 
 
-                pos = self.engine.position
+                position = self.engine.position
 
 
 
-                if pos.direction == "BUY":
+                if position.direction == "BUY":
 
 
-                    if low <= pos.stop_loss:
+                    if low <= position.stop_loss:
 
 
                         self.engine.close_position(
 
-                            pos.stop_loss,
+                            position.stop_loss,
 
-                            time
+                            signal_time
 
                         )
 
 
-                    elif high >= pos.take_profit:
+                    elif high >= position.take_profit:
 
 
                         self.engine.close_position(
 
-                            pos.take_profit,
+                            position.take_profit,
 
-                            time
-
-                        )
-
-
-
-
-                elif pos.direction == "SELL":
-
-
-                    if high >= pos.stop_loss:
-
-
-                        self.engine.close_position(
-
-                            pos.stop_loss,
-
-                            time
-
-                        )
-
-
-                    elif low <= pos.take_profit:
-
-
-                        self.engine.close_position(
-
-                            pos.take_profit,
-
-                            time
+                            signal_time
 
                         )
 
 
 
 
-            # =====================================
+
+                elif position.direction == "SELL":
+
+
+                    if high >= position.stop_loss:
+
+
+                        self.engine.close_position(
+
+                            position.stop_loss,
+
+                            signal_time
+
+                        )
+
+
+                    elif low <= position.take_profit:
+
+
+                        self.engine.close_position(
+
+                            position.take_profit,
+
+                            signal_time
+
+                        )
+
+
+
+
+
+
+
+            # ============================
             # OPEN POSITION
-            # =====================================
+            # ============================
 
 
             if self.engine.position is None:
 
 
 
-                if signal not in (
+                if final_signal not in (
 
                     "BUY",
 
@@ -202,18 +196,32 @@ class Backtester:
 
 
 
+                # ورود واقعی:
+                # open کندل بعد از سیگنال
+
+
+                entry_price = float(
+
+                    execution_candle["open"]
+
+                )
+
+
+
+
                 risk = RiskEngine.calculate(
 
-                    df.iloc[:i+1],
+                    df.iloc[:i + 1],
 
-                    signal
+                    final_signal,
+
+                    entry_price=entry_price
 
                 )
 
 
 
                 if risk["entry"] is None:
-
 
                     continue
 
@@ -224,16 +232,18 @@ class Backtester:
 
                     "TRADE:",
 
-                    time,
+                    signal_time,
 
-                    signal,
+                    final_signal,
+
+                    "ENTRY:",
+
+                    risk["entry"],
 
                     "STRUCTURE:",
 
-                    candle.get(
-
+                    signal_candle.get(
                         "STRUCTURE"
-
                     ),
 
                     "DECISION:",
@@ -244,29 +254,23 @@ class Backtester:
 
 
 
-                position = Position(
 
+
+                position = Position(
 
                     symbol="XAUUSD",
 
-
-                    direction=signal,
-
+                    direction=final_signal,
 
                     volume=1.0,
 
-
                     entry_price=risk["entry"],
-
 
                     stop_loss=risk["stop_loss"],
 
-
                     take_profit=risk["take_profit"],
 
-
-                    open_time=time
-
+                    open_time=execution_time
 
                 )
 
@@ -281,9 +285,11 @@ class Backtester:
 
 
 
-        # =====================================
+
+
+        # ============================
         # CLOSE LAST POSITION
-        # =====================================
+        # ============================
 
 
         if self.engine.position is not None:
@@ -308,6 +314,5 @@ class Backtester:
 
 
     def statistics(self):
-
 
         return self.engine.report()

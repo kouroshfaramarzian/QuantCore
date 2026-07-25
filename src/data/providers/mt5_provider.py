@@ -9,14 +9,31 @@ class MT5Provider(BaseProvider):
     MetaTrader5 market data provider.
     """
 
+
     def connect(self) -> bool:
+
         if not mt5.initialize():
-            raise ConnectionError("Cannot initialize MetaTrader5.")
+
+            raise ConnectionError(
+                "Cannot initialize MetaTrader5."
+            )
 
         return True
 
+
+
     def disconnect(self) -> None:
+
         mt5.shutdown()
+
+
+
+    # سازگاری با main.py
+    def shutdown(self):
+
+        self.disconnect()
+
+
 
     def load_data(
         self,
@@ -27,6 +44,7 @@ class MT5Provider(BaseProvider):
         count: int = 1000,
     ) -> pd.DataFrame:
 
+
         rates = mt5.copy_rates_from_pos(
             symbol,
             timeframe,
@@ -34,25 +52,36 @@ class MT5Provider(BaseProvider):
             count,
         )
 
+
         if rates is None:
-            raise RuntimeError(f"Cannot load data for {symbol}")
 
-        df = pd.DataFrame(rates)
+            raise RuntimeError(
+                f"Cannot load data for {symbol}"
+            )
 
-        # Standardize column names
+
+
+        df = pd.DataFrame(
+            rates
+        )
+
+
+
         df = df.rename(
             columns={
                 "tick_volume": "volume",
             }
         )
 
-        # Convert Unix timestamp to datetime
+
+
         df["time"] = pd.to_datetime(
             df["time"],
-            unit="s",
+            unit="s"
         )
 
-        # Keep only QuantCore standard columns
+
+
         df = df[
             [
                 "time",
@@ -63,5 +92,7 @@ class MT5Provider(BaseProvider):
                 "volume",
             ]
         ]
+
+
 
         return df

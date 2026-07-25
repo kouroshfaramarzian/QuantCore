@@ -1,17 +1,13 @@
-from datetime import datetime
+# main.py
 
 from MetaTrader5 import TIMEFRAME_M1
 
 
-from src.data.pipeline import DataPipeline
 from src.data.providers.mt5_provider import MT5Provider
+from src.data.pipeline import DataPipeline
 
 
 from src.features.feature_engine import FeatureEngine
-
-
-from src.context.context_engine import ContextEngine
-from src.context.market_state import MarketStateResolver
 
 
 from src.market.swing import SwingDetector
@@ -28,16 +24,12 @@ from src.risk.risk_engine import RiskEngine
 
 
 from src.backtest.backtester import Backtester
-from src.backtest.report import Report
-from src.backtest.statistics import Statistics
 
 
 from src.evaluation.splitter import DataSplitter
 from src.evaluation.walk_forward import WalkForwardValidator
 
 
-from src.execution.order import Order
-from src.execution.order_manager import OrderManager
 
 
 
@@ -52,26 +44,35 @@ def main():
 
 
         print("=" * 60)
-        print("QuantCore START")
+
+        print(
+            "QuantCore START"
+        )
+
         print("=" * 60)
 
 
 
-        # ==========================================
+
+
+        # =====================================
         # DATA
-        # ==========================================
+        # =====================================
 
 
         pipeline = DataPipeline(
+
             provider
+
         )
+
 
 
         df = pipeline.run(
 
             symbol="XAUUSD",
 
-            timeframe=TIMEFRAME_M1,
+            timeframe=TIMEFRAME_M1
 
         )
 
@@ -80,63 +81,84 @@ def main():
         if df is None or df.empty:
 
             raise Exception(
-                "No market data received"
+                "No market data"
             )
 
 
 
-        # ==========================================
+
+
+        # =====================================
         # FEATURES
-        # ==========================================
+        # =====================================
 
 
         df = FeatureEngine.transform(
+
             df
+
         )
 
 
 
-        # ==========================================
+
+
+        # =====================================
         # MARKET STRUCTURE
-        # ==========================================
+        # =====================================
 
 
         df = SwingDetector.detect(
+
             df
+
         )
 
 
         df = BOSDetector.detect(
+
             df
+
         )
 
 
         df = CHOCHDetector.detect(
+
             df
+
         )
+
+
 
 
         print()
 
-        print("BOS BEFORE STRUCTURE")
+
+        print(
+            "BOS BEFORE STRUCTURE"
+        )
 
 
         print(
 
             df[
+
                 [
                     "BULLISH_BOS",
                     "BEARISH_BOS"
                 ]
-            ]
-            .sum()
+
+            ].sum()
 
         )
+
 
 
 
         df = StructureEngine.build(
+
             df
+
         )
 
 
@@ -145,247 +167,68 @@ def main():
 
 
         print(
-            df[
-                [
-                    "STRUCTURE",
-                    "STRUCTURE_SCORE",
-                    "STRUCTURE_REASON",
-                    "BULLISH_BOS",
-                    "BEARISH_BOS",
-                    "CHOCH_BULLISH",
-                    "CHOCH_BEARISH",
-                ]
-            ]
-            .tail(10)
+            "STRUCTURE DISTRIBUTION"
         )
-
-
-
-        print()
-
-        print("BOS DISTRIBUTION")
-
-
-        print(
-
-            df[
-                [
-                    "BULLISH_BOS",
-                    "BEARISH_BOS"
-                ]
-            ]
-            .sum()
-
-        )
-
-
-
-        print()
-
-        print("CHOCH DISTRIBUTION")
-
-
-        print(
-
-            df[
-                [
-                    "CHOCH_BULLISH",
-                    "CHOCH_BEARISH"
-                ]
-            ]
-            .sum()
-
-        )
-
-
-
-        print()
-
-        print("STRUCTURE DISTRIBUTION")
 
 
         print(
 
             df["STRUCTURE"]
+
             .value_counts()
 
         )
 
 
 
-        # ==========================================
-        # SPLIT
-        # ==========================================
+
+
+
+        # =====================================
+        # SPLIT DATA
+        # =====================================
 
 
         train_df, validation_df, test_df = DataSplitter.split(
+
             df
+
         )
 
 
 
         if test_df.empty:
 
+
             raise Exception(
-                "Empty test dataframe"
+                "Empty test data"
             )
 
 
 
-        # ==========================================
+
+
+        # =====================================
         # SIGNAL GENERATION
-        # ==========================================
+        # =====================================
 
 
         test_df = SignalEngine.generate_series(
+
             test_df
+
         )
 
 
 
-        decisions = []
-
-
-
-        for _, row in test_df.iterrows():
-
-
-            decision = DecisionEngine.decide(
-
-                signal=row.get(
-                    "signal",
-                    "HOLD"
-                ),
-
-
-                confidence=int(
-                    row.get(
-                        "confidence",
-                        0
-                    )
-                ),
-
-
-                trend=row.get(
-                    "trend",
-                    "RANGE"
-                ),
-
-
-                reason=row.get(
-                    "reason",
-                    ""
-                ),
-
-            )
-
-
-            decisions.append(
-
-                decision["signal"]
-
-            )
-
-
-
-        test_df["decision"] = decisions
-                # ==========================================
-        # DEBUG
-        # ==========================================
-
 
         print()
-
-        print("STRUCTURE DEBUG")
 
 
         print(
-
-            test_df[
-
-                [
-                    "STRUCTURE",
-                    "STRUCTURE_SCORE",
-                    "STRUCTURE_REASON",
-                    "EMA20",
-                    "EMA50",
-                    "EMA200",
-                    "BULLISH_BOS",
-                    "BEARISH_BOS",
-                    "CHOCH_BULLISH",
-                    "CHOCH_BEARISH",
-                ]
-
-            ]
-
-            .tail(1)
-
-            .T
-
+            "SIGNAL DISTRIBUTION"
         )
 
-
-
-        last = test_df.iloc[-1]
-
-
-
-        # ==========================================
-        # CONTEXT
-        # ==========================================
-
-
-        context = ContextEngine.build(
-
-            test_df
-
-        )
-
-
-        print()
-
-        print("MARKET CONTEXT")
-
-        print(context)
-
-
-
-        # ==========================================
-        # MARKET STATE
-        # ==========================================
-
-
-        market_state = MarketStateResolver.resolve(
-
-            last
-
-        )
-
-
-        print()
-
-        print("MARKET STATE")
-
-        print(market_state)
-
-
-
-        # ==========================================
-        # LIVE SIGNAL
-        # ==========================================
-
-
-        signal = SignalEngine.generate(
-
-            test_df
-
-        )
-
-
-
-        print()
-
-        print("SIGNAL DISTRIBUTION")
 
 
         print(
@@ -398,59 +241,17 @@ def main():
 
 
 
-        print()
-
-        print("LIVE SIGNAL")
-
-        print(signal)
 
 
 
-        # ==========================================
-        # LIVE DECISION
-        # ==========================================
+        # =====================================
+        # LIVE SIGNAL
+        # =====================================
 
 
-        decision = DecisionEngine.decide(
+        live_signal = SignalEngine.generate(
 
-            signal=signal.get(
-
-                "signal",
-
-                "HOLD"
-
-            ),
-
-
-            confidence=int(
-
-                signal.get(
-
-                    "confidence",
-
-                    0
-
-                )
-
-            ),
-
-
-            trend=signal.get(
-
-                "trend",
-
-                "RANGE"
-
-            ),
-
-
-            reason=signal.get(
-
-                "reason",
-
-                ""
-
-            )
+            df
 
         )
 
@@ -458,28 +259,133 @@ def main():
 
         print()
 
-        print("DECISION")
 
-        print(decision)
+        print(
+            "LIVE SIGNAL"
+        )
+
+
+        print(
+
+            live_signal
+
+        )
 
 
 
-        # ==========================================
-        # RISK
-        # ==========================================
+
+        decision = DecisionEngine.decide(
+
+            signal=live_signal.get(
+                "signal",
+                "HOLD"
+            ),
+
+
+            confidence=live_signal.get(
+                "confidence",
+                0
+            ),
+
+
+            trend=live_signal.get(
+                "trend",
+                "RANGE"
+            ),
+
+
+            reason=live_signal.get(
+                "reason",
+                ""
+            )
+
+        )
+
+
+
+
+        print()
+
+
+        print(
+            "DECISION"
+        )
+
+
+        print(
+
+            decision
+
+        )
+
+
+
+
+
+
+
+        # =====================================
+        # RISK DEBUG
+        # =====================================
+
+
+        trade_signal = decision.get(
+
+            "signal",
+
+            "HOLD"
+
+        )
+
+
+
+        if trade_signal == "HOLD":
+
+
+            valid = test_df[
+
+                test_df["signal"]
+
+                .isin(
+
+                    [
+                        "BUY",
+                        "SELL"
+                    ]
+
+                )
+
+            ]
+
+
+
+            if not valid.empty:
+
+
+                trade_signal = valid.iloc[-1]["signal"]
+
+
+
+
+
+        print()
+
+
+        print(
+
+            "RISK DEBUG SIGNAL:",
+
+            trade_signal
+
+        )
+
 
 
         risk = RiskEngine.calculate(
 
             test_df,
 
-            decision.get(
-
-                "signal",
-
-                "HOLD"
-
-            )
+            trade_signal
 
         )
 
@@ -487,15 +393,27 @@ def main():
 
         print()
 
-        print("RISK")
 
-        print(risk)
+        print(
+            "RISK"
+        )
+
+
+        print(
+
+            risk
+
+        )
 
 
 
-        # ==========================================
+
+
+
+
+        # =====================================
         # BACKTEST
-        # ==========================================
+        # =====================================
 
 
         backtester = Backtester()
@@ -510,32 +428,23 @@ def main():
 
 
 
-        statistics = Statistics()
-
-
-
-        for trade in trades:
-
-
-            statistics.update(
-
-                trade
-
-            )
-
-
-
-        stats = statistics.summary(
-
-            backtester.engine.portfolio
-
-        )
+        stats = backtester.statistics()
 
 
 
         print()
 
-        Report.show(
+
+        print("=" * 60)
+
+        print(
+            "QuantCore Backtest Report"
+        )
+
+        print("=" * 60)
+
+
+        print(
 
             stats
 
@@ -543,122 +452,64 @@ def main():
 
 
 
-        # ==========================================
+
+
+
+
+        # =====================================
         # WALK FORWARD
-        # ==========================================
+        # =====================================
+
+
+        wf = WalkForwardValidator.run(
+
+            df
+
+        )
 
 
         print()
 
-        print("Walk Forward")
+
+        print(
+            "Walk Forward"
+        )
 
 
+        print(
 
-        results = WalkForwardValidator.run(
-
-            train_df
+            wf
 
         )
 
 
 
-        for result in results:
 
 
-            print(result)
+    except Exception as e:
 
 
-
-        # ==========================================
-        # EXECUTION
-        # ==========================================
+        print()
 
 
-        if risk.get(
-
-            "entry"
-
-        ) is not None:
+        print(
+            "ERROR:"
+        )
 
 
+        print(
 
-            order = Order(
+            e
 
-                symbol="XAUUSD",
-
-
-                direction=decision.get(
-
-                    "signal",
-
-                    "HOLD"
-
-                ),
-
-
-                volume=1.0,
-
-
-                entry_price=risk.get(
-
-                    "entry"
-
-                ),
-
-
-                stop_loss=risk.get(
-
-                    "stop_loss"
-
-                ),
-
-
-                take_profit=risk.get(
-
-                    "take_profit"
-
-                ),
-
-
-                open_time=datetime.now()
-
-            )
-
-
-
-            position = OrderManager.execute(
-
-                order
-
-            )
-
-
-
-            print()
-
-            print("EXECUTION")
-
-            print(position)
-
-
-
-        else:
-
-
-            print()
-
-            print(
-
-                "Execution skipped - no valid risk"
-
-            )
+        )
 
 
 
     finally:
 
 
-        provider.disconnect()
+        provider.shutdown()
+
 
 
 
